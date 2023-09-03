@@ -1,9 +1,9 @@
-import { ReactNode } from "react";
+import React, { ReactNode, ReactElement } from "react";
 
 interface IfProps {
-  condition: true | false; // deliberately didn't use boolean
+  when: unknown; // deliberately didn't use boolean
   fallback?: null | undefined | ReactNode;
-  children: ReactNode | ((fallback: null | undefined | ReactNode) => ReactNode);
+  children: ReactNode | (() => ReactNode);
 }
 
 /**
@@ -11,7 +11,7 @@ interface IfProps {
  *
  * @component
  * @example
- * // Renders <div>Content</div> if `someCondition` is `true`, otherwise renders <p>Fallback</p>
+ * // Renders <div>Content</div> if `someCondition` resolves to `true`, otherwise renders <p>Fallback</p>
  * <If condition={someCondition} fallback={<p>Fallback</p>}>
  *   <div>Content</div>
  * </If>
@@ -20,23 +20,30 @@ interface IfProps {
  * // Renders the result of the `renderContent` function if `someCondition` is `true`,
  * // otherwise renders null.
  * <If condition={someCondition} fallback={null}>
- *   {(fallback) => <SomeComponent />}
+ *   {() => <SomeComponent />}
  * </If>
  *
  * @param {Object} props - The props of the If component.
- * @param {boolean} props.condition - The condition to evaluate for rendering.
+ * @param {unknown} props.condition - The condition to evaluate for rendering.
  * @param {ReactNode} [props.fallback=null] - The fallback content to render when the condition is not met.
  * @param {(ReactNode|function(fallback: ReactNode): ReactNode)} props.children - The content to render when the condition is met.
- *                         If it's a function, the function is called with the fallback content as an argument.
  * @returns {ReactNode|null} The rendered content based on the condition.
  */
-export function If({ condition, fallback = null, children }: IfProps): ReactNode | null {
-  if (condition) {
+export function Show({ when, fallback = null, children }: IfProps): ReactNode | null {
+
+  if (Boolean(when)) {
     if (typeof children === 'function') {
-      return children(fallback);
+      return children();
     }
     return children;
   } else {
     return fallback;
   }
 }
+
+export const If = (() => {
+  console.warn("<If condition={...}> has been deprecated, use <Show when={...}>")
+  return function ({ condition, children, fallback }: Omit<IfProps, "when"> & { condition: boolean }): ReactElement<any, any> {
+    return <Show when={condition} fallback={fallback} children={children} />
+  }
+})()

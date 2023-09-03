@@ -11,7 +11,7 @@ interface ForProps {
   /**
    * The child component to render for each item.
    */
-  children: ReactElement;
+  children: ReactElement<any, any> & { props: { [key: string]: any } } | ((item: any, index: number) => ReactNode);
 }
 
 /**
@@ -30,16 +30,23 @@ interface ForProps {
  * @returns {ReactNode[]} An array of rendered child components.
  * @throws {Error} If used incorrectly with multiple children or a non-array `each` prop.
  */
-export function For({ each, children }: ForProps): ReactNode[] {
-  useEffect(() => {
-    if (Array.isArray(children) || !React.isValidElement(children)) {
-      throw new Error("Only provide one valid child element to <For> component");
-    }
 
+export function For({ each = [], children }: ForProps): ReactNode[] {
+  useEffect(() => {
     if (!Array.isArray(each)) {
       throw new Error("each prop must be an array <For each={[...]}>");
     }
-  }, [children, each]);
+  }, [each]);
+
+  if (typeof children === "function") {
+    const renderFunction = children as (item: any, index: number) => ReactNode;
+
+    return each.map((item, index) => renderFunction(item, index));
+  }
+
+  if (Array.isArray(children) || !React.isValidElement(children)) {
+    throw new Error("Only provide one valid child element or function to <For> component");
+  }
 
   const ForChildComponent = children.type;
   const props = { ...children.props };
@@ -49,7 +56,7 @@ export function For({ each, children }: ForProps): ReactNode[] {
 
   for (let index = 0; index < length; index++) {
     const item = each[index];
-    renderedChildren.push(<ForChildComponent {...{ ...props, item, index }} />);
+    renderedChildren.push(<ForChildComponent {...{ ...props, [props?.item || "item"]: item, [props?.index || "index"]: index }} />);
   }
 
   return renderedChildren;
