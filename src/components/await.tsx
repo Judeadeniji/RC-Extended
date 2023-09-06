@@ -6,12 +6,12 @@ import type { AwaitContextType } from "../context.js";
 /**
  * Props for the Await component.
  * @typedef {Object} AwaitProps
- * @property {() => Promise<any>} promiseFn - A function that returns a promise to be awaited.
+ * @property {() => Promise<any>} promise - A promise to be awaited.
  * @property {ReactNode} children - The content to be rendered while awaiting the promise.
  */
  
  interface AwaitProps {
-  promiseFn: () => Promise<any>;
+  promise: Promise<any>;
   children: ReactNode;
 }
 
@@ -20,7 +20,7 @@ import type { AwaitContextType } from "../context.js";
  * @param {AwaitProps} props - The props for the Await component.
  * @returns {JSX.Element} The JSX for the Await component.
  */
-export function Await({ promiseFn, children }: AwaitProps): ReactNode {
+export function Await({ promise, children }: AwaitProps): ReactNode {
   /**
    * The state of the promise.
    * @type {AwaitContextType}
@@ -29,38 +29,21 @@ export function Await({ promiseFn, children }: AwaitProps): ReactNode {
     isPending: true,
     isFulfilled: false,
     isRejected: false,
-    isRevalidating: false,
     result: null,
     error: null,
   });
-
-  /**
-   * Invalidates the current promise state and triggers re-validation.
-   */
-  function invalidate() {
-    promiseState.value = {
-      isPending: true,
-      isFulfilled: false,
-      isRejected: false,
-      isRevalidating: true,
-      result: null,
-      error: null,
-    };
-    resolvePromise();
-  };
 
   /**
    * Resolves the provided promise and updates the promise state accordingly.
    */
   const resolvePromise = useCallback(async () => {
     try {
-      const result = await promiseFn();
+      const result = await promise;
 
       promiseState.value = {
         isPending: false,
         isFulfilled: true,
         isRejected: false,
-        isRevalidating: false,
         result,
         error: null,
       };
@@ -69,18 +52,17 @@ export function Await({ promiseFn, children }: AwaitProps): ReactNode {
         ...promiseState.value,
         isPending: false,
         isRejected: true,
-        isRevalidating: false,
         error: e as Error,
       };
     }
-  }, [promiseFn]);
+  }, [promise]);
 
   useEffect(() => {
     resolvePromise();
   }, [resolvePromise]);
 
   return (
-    <AwaitContext.Provider value={{ ...promiseState.value, invalidate }}>
+    <AwaitContext.Provider value={promiseState.value}>
       {children}
     </AwaitContext.Provider>
   );
