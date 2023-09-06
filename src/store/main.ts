@@ -4,7 +4,7 @@ import useReactive from "../hooks/reactive"
 
 const StoreMap = new Map<string, Store>();
 
-type State = Record<string, any>;
+export type State = Record<string, any>;
 type SignalState = Signal<State>;
 type Getters = Record<string, (state: State) => any>;
 type Actions = Record<string, (...args: any[]) => State>;
@@ -244,6 +244,7 @@ export function useStore(storeName: string): Store {
     throw new Error(`Store "${storeName}" not found. Make sure to define it using 'defineStore("${storeName}", definitions)'.`);
   }
 
+// this why I don't really like react
   const [, setState] = useState<SignalState>(store.getState());
 
   useEffect(() => store.getState().subscribe((newState) => {

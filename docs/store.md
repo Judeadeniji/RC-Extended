@@ -1,6 +1,6 @@
 # rc-extended/store Documentation
 
-Welcome to the official documentation for `rc-extended/store`, a powerful library for managing state in React applications. This guide will walk you through the installation, setup, and best practices for using `rc-extended/store` effectively in your React projects.
+Welcome to the official documentation for `rc-extended/store`, a powerful signal based module for managing state in React applications. This guide will walk you through the installation, setup, and best practices for using `rc-extended/store` effectively in your React projects.
 
 ## Table of Contents
 
@@ -38,13 +38,9 @@ Welcome to the official documentation for `rc-extended/store`, a powerful librar
    - [Example 1: Creating and Using a Store](#example-1-creating-and-using-a-store)
    - [Example 2: Working with Computed Properties](#example-2-working-with-computed-properties)
    - [Example 3: Watching for State Changes](#example-3-watching-for-state-changes)
-6. [FAQ](#faq)
-7. [Contributing](#contributing)
-8. [License](#license)
-
 ## 1. Installation<a name="installation"></a>
 
-To install `rc-extended/store`, use npm or yarn:
+To install `rc-extended`, use npm or yarn:
 
 ```bash
 npm install rc-extended
@@ -58,9 +54,9 @@ yarn add rc-extended
 
 `rc-extended/store` provides a straightforward way to create a store for your application's state management.
 
-```javascript
+```typescript
 // stores.js
-import { defineStore } from "rc-extended/store";
+import { defineStore, Definitions } from "rc-extended/store";
 
 // Create a store named "myStore"
 const useMyStore = defineStore("myStore", {
@@ -77,7 +73,7 @@ const useMyStore = defineStore("myStore", {
   getters: {
     // Define getters here
   },
-});
+}: Definitions);
 
 export { useMyStore }
 ```
@@ -118,11 +114,11 @@ You can choose to use either `useMyStore` (the hook returned by `defineStore`) o
 
 Once you've created a store, you can access it using the `useStore` hook.
 
-```javascript
-import { useStore } from "rc-extended/store";
+```typescript
+import { useStore, Store } from "rc-extended/store";
 
 function MyComponent() {
-  const store = useStore("myStore");
+  const store: Store = useStore("myStore");
 
   // Access store data and methods here
 
@@ -513,25 +509,3 @@ function MyComponent() {
   );
 }
 ```
-
-## 6. FAQ<a name="faq"></a>
-
-### Q1: Can I create multiple stores in my application?
-
-Yes, you can create multiple stores by using different names when defining stores with `defineStore`.
-
-### Q2: How do I handle asynchronous actions in my store?
-
-You can define asynchronous actions that return promises in the `actions` section of your store definitions. Ensure that your actions return the updated state.
-
-...
-
-[Include more FAQs as needed]
-
-## 7. Contributing<a name="contributing"></a>
-
-We welcome contributions! If you'd like to contribute to `rc-extended/store`, please follow our [Contribution Guidelines](CONTRIBUTING.md).
-
-## 8. License<a name="license"></a>
-
-`rc-extended/store` is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
