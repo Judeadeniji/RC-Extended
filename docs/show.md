@@ -1,4 +1,4 @@
-# Documentation for the rc-extended `Show` Component
+# Documentation for the rc-extended `Show` Component (alias `If`)
 
 The `Show` component, part of the `rc-extended` package, serves as a versatile tool for implementing conditional rendering within your React applications. It grants you the ability to display content based on specific conditions, giving you the freedom to design your UI elements with precision.
 
@@ -47,6 +47,17 @@ Example 2: Utilizing a function to render dynamic content based on the condition
 ```jsx
 <Show when={showMessage} fallback={<p>No Messages Yet.</p>}>
   {() => <MessageBanner />}
+</Show>
+```
+
+Example 3: using `Show` with signals
+
+```javascript
+const showMessage = signal(false);
+
+// $when is used to tell the `Show` that we are passing a signal as prop value
+<Show $when={showMessage} fallback={<p>No Messages Yet.</p>}>
+  <MessageBanner />
 </Show>
 ```
 

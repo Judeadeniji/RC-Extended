@@ -11,7 +11,7 @@ import type { AwaitContextType } from "../context.js";
  */
  
  interface AwaitProps {
-  promise: Promise<any>;
+  promiseFn: () => Promise<any>;
   children: ReactNode;
 }
 
@@ -20,7 +20,7 @@ import type { AwaitContextType } from "../context.js";
  * @param {AwaitProps} props - The props for the Await component.
  * @returns {JSX.Element} The JSX for the Await component.
  */
-export function Await({ promise, children }: AwaitProps): ReactNode {
+export function Await({ promiseFn, children }: AwaitProps): ReactNode {
   /**
    * The state of the promise.
    * @type {AwaitContextType}
@@ -38,7 +38,7 @@ export function Await({ promise, children }: AwaitProps): ReactNode {
    */
   const resolvePromise = useCallback(async () => {
     try {
-      const result = await promise;
+      const result = await promiseFn();
 
       promiseState.value = {
         isPending: false,
@@ -55,7 +55,7 @@ export function Await({ promise, children }: AwaitProps): ReactNode {
         error: e as Error,
       };
     }
-  }, [promise]);
+  }, [promiseFn]);
 
   useEffect(() => {
     resolvePromise();

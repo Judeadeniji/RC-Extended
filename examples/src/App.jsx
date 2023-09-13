@@ -2,20 +2,25 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import { useStore, useActions, signal, useSignalValue, useSignalAction, useComputedSignal } from "rc-extended/store"
+import { For, useInterval } from "rc-extended"
+import { signal, useSignalAction, batch } from "rc-extended/store"
 import { counter } from "./store"
 
-const countSignal = signal(0)
+const reasons = signal([
+  "React Sucks",
+  "Even though it sucks, we can make it better.",
+  "Back to number 1"
+])
 
 
 function App() {
+  const addTodo = useSignalAction(reasons)
+  useInterval(() => {
+    batch(() => {
+      reasons.value = ([...reasons.value, "Wow Next"])
+    })
+  }, 1500)
   try {
-  //let { count, getQuadruple } = counter();
-  // let { increment } = useActions(counter());
-  const setCount = useSignalAction(countSignal)
-  const count = useSignalValue(countSignal)
-  const double = useComputedSignal(countSignal, count => count * 2)
-alert(double())
   return (
     <>
       <div>
@@ -26,20 +31,17 @@ alert(double())
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1>Vite + React</h1>
+      <h1>Vite + React + RC-Extended</h1>
       <div className="card">
-        <button onClick={() => setCount(c => c + 1)}>
-          count is {count}
-        </button>
-        
-        <Button />
-        
-        <button disabled>
-          quadruple count is {double}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+        <ol>
+          <For $each={reasons}>
+            {(item, index) => (
+              <li key={index}>
+                {item}
+              </li>
+            )}
+          </For>
+        </ol>
       </div>
       <p className="read-the-docs">
         Click on the Vite and React logos to learn more
@@ -51,15 +53,5 @@ alert(double())
   }
 }
 
-function Button() {
-  const count = useSignalValue(countSignal)
-  return (
-    <>
-    <button disabled>
-      Doubled count is {count * 2}
-    </button>
-    </>
-  )
-}
 
 export default App

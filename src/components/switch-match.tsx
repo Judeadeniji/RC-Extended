@@ -6,7 +6,7 @@ import React, { ReactNode } from "react";
  * @property {ReactNode} fallback - The fallback content to render when no condition matches.
  * @property {ReactNode | ReactNode[]} children - The child components representing conditions and content.
  */
- type SwitchProps = {
+ export type SwitchProps = {
    fallback: ReactNode;
    children: ReactNode | ReactNode[];
  }

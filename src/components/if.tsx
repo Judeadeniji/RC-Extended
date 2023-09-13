@@ -1,7 +1,9 @@
-import React, { ReactNode, ReactElement } from "react";
+import React, { ReactNode, ReactElement, useState, useEffect } from "react";
+import { Signal } from "../store"
 
-interface IfProps {
-  when: unknown; // deliberately didn't use boolean
+interface IfProps<> {
+  when?: unknown; // deliberately didn't use boolean
+  $when?: Signal<unknown>;
   fallback?: null | undefined | ReactNode;
   children: ReactNode | (() => ReactNode);
 }
@@ -29,9 +31,26 @@ interface IfProps {
  * @param {(ReactNode|function(fallback: ReactNode): ReactNode)} props.children - The content to render when the condition is met.
  * @returns {ReactNode|null} The rendered content based on the condition.
  */
-export function Show({ when, fallback = null, children }: IfProps): ReactNode | null {
+export function Show({ when, $when, fallback = null, children }: IfProps): ReactNode | null {
 
+  if($when && !($when instanceof Signal)) {
+    throw new TypeError("$when prop must receive a signal as value")
+  }
+  
+  const [whenV, setWhenV] = useState<any | false>($when.value || false)
+  
+  useEffect(() => {
+    if ($when) {
+      return $when.subscribe(n => setWhenV(n))
+    }
+  }, [])
+  
   if (Boolean(when)) {
+    if (typeof children === 'function') {
+      return children();
+    }
+    return children;
+  } else if (Boolean(whenV)) {
     if (typeof children === 'function') {
       return children();
     }
@@ -41,9 +60,6 @@ export function Show({ when, fallback = null, children }: IfProps): ReactNode | 
   }
 }
 
-export const If = (() => {
-  console.warn("<If condition={...}> has been deprecated, use <Show when={...}>")
-  return function ({ condition, children, fallback }: Omit<IfProps, "when"> & { condition: boolean }): ReactElement<any, any> {
-    return <Show when={condition} fallback={fallback} children={children} />
-  }
-})()
+export {
+  Show as If
+}

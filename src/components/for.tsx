@@ -1,21 +1,26 @@
-import React, { useEffect, ReactElement, ReactNode } from "react";
+import React, { Component } from "react";
+import { Signal } from "../store"
 
 /**
  * Props for the For component.
  */
-interface ForProps {
+interface ForProps<T> {
   /**
-   * An array of items to iterate over.
+   * An array or object to iterate over.
    */
-  each: any[];
+  each: T[] | { [key: string]: T };
+  /**
+   * The Signal to iterate over.
+   */
+  $each?: Signal<T[]>;
   /**
    * The child component to render for each item.
    */
-  children: ReactElement<any, any> & { props: { [key: string]: any } } | ((item: any, index: number) => ReactNode);
+  children: React.ReactElement<any, any> & { props: { [key: string]: any } } | ((item: T, index: string | number) => React.ReactNode);
 }
 
 /**
- * Component that iterates over an array and renders a child component for each item.
+ * Component that iterates over an array or object and renders a child component for each item.
  *
  * @component
  * @example
@@ -24,40 +29,172 @@ interface ForProps {
  *   <NameItem />
  * </For>
  *
+ * // Renders a list of key-value pairs using the <KeyValuePair> component for each pair in the object.
+ * <For each={myObject}>
+ *   {(value, key) => <KeyValuePair key={key} value={value} />}
+ * </For>
+ *
  * @param {ForProps} props - The props for the For component.
- * @param {any[]} props.each - An array of items to iterate over.
+ * @param {any[] | { [key: string]: any }} props.each - An array or an object to iterate over.
  * @param {ReactElement} props.children - The child component to render for each item.
  * @returns {ReactNode[]} An array of rendered child components.
- * @throws {Error} If used incorrectly with multiple children or a non-array `each` prop.
+ * @throws {Error} If used incorrectly with multiple children or an invalid `each` prop.
  */
-
-export function For({ each = [], children }: ForProps): ReactNode[] {
-  useEffect(() => {
-    if (!Array.isArray(each)) {
-      throw new Error("each prop must be an array <For each={[...]}>");
+class For<T> extends Component<ForProps<T>> {
+  public props: ForProps<T>
+  public state: { signal?: T[] }
+  //@ts-ignore
+  private unsubscribe: () => void
+  constructor(props: ForProps<T>) {
+    super(props)
+    this.props = props;
+    this.state = {};
+    this.unsubscribe = () => {}
+    if(this.props.$each && this.props.$each instanceof Signal) {
+      this.setState({
+        signal: this.props.$each.value
+      })
     }
-  }, [each]);
+  }
+  
+  componentDidMount() {
+    const { each, $each } = this.props;
+    if (each && !Array.isArray(each) && !this.isObject(each)) {
+      throw new Error("each prop must be an array or an object <For each={[...]}> or <For each={{...}}>.");
+    }
+    if ($each && $each instanceof Signal && !Array.isArray($each.value) && !this.isObject($each.value)) {
+      throw new Error("$each must be a signal prop with value which must be an array or an object <For $each={Signal([...])}> or <For each={Signal({...})}>.");
+    }
+    
+    
+    if($each) {
+      this.unsubscribe = $each.subscribe((newState) => {
+        this.state = {
+          signal: newState
+        }
+      })
+    }
+  }
+  
+  componentWillUnmount() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+  } 
 
-  if (typeof children === "function") {
-    const renderFunction = children as (item: any, index: number) => ReactNode;
+  render() {
+    const { each, $each, children } = this.props;
+    
+    if($each && typeof children === "function") {
+      return this.renderWithSignal(children, true)
+    }
+    
+    if($each) {
+      return this.renderWithSignal(children, false)
+    }
 
-    return each.map((item, index) => renderFunction(item, index));
+    if (each && typeof children === "function") {
+      return this.renderUsingFunction(each, children);
+    }
+
+    if (Array.isArray(children) || !React.isValidElement(children)) {
+      throw new Error("Only provide one valid child element or function to <For> component");
+    }
+    
+    return this.renderUsingChildComponent(each, children);
+  }
+  
+  private renderWithSignal(children: any, isFn: boolean) {
+    if (!this.state.signal) {
+      throw new ReferenceError("$each is not Defined")
+    }
+    
+    if(isFn) {
+      return this.renderUsingFunction(this .state.signal, children)
+    }
+    
+   return this.renderUsingChildComponent(this.state.signal, children)
   }
 
-  if (Array.isArray(children) || !React.isValidElement(children)) {
-    throw new Error("Only provide one valid child element or function to <For> component");
+  private renderUsingFunction(each: any[] | { [key: string]: any }, renderFunction: Function) {
+    if (Array.isArray(each)) {
+      return this.renderArrayUsingFunction(each, renderFunction);
+    } else {
+      return this.renderObjectUsingFunction(each, renderFunction);
+    }
   }
 
-  const ForChildComponent = children.type;
-  const props = { ...children.props };
-
-  const renderedChildren: ReactNode[] = [];
-  const length = each.length;
-
-  for (let index = 0; index < length; index++) {
-    const item = each[index];
-    renderedChildren.push(<ForChildComponent {...{ ...props, [props?.item || "item"]: item, [props?.index || "index"]: index }} />);
+  private renderArrayUsingFunction(each: any[], renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    for (let index = 0; index < each.length; index++) {
+      const item = each[index];
+      const renderedChild = renderFunction(item, index);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key: index })
+          : renderedChild
+      );
+    }
+    return renderedChildren;
   }
 
-  return renderedChildren;
+  private renderObjectUsingFunction(each: { [key: string]: any }, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    const keys = Object.keys(each);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const item = each[key];
+      const renderedChild = renderFunction(item, key);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key })
+          : renderedChild
+      );
+    }
+    return renderedChildren;
+  }
+
+  private renderUsingChildComponent(each: any[] | { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
+    if (Array.isArray(each)) {
+      return this.renderArrayUsingChildComponent(each, childComponent);
+    } else {
+      return this.renderObjectUsingChildComponent(each, childComponent);
+    }
+  }
+
+  private renderArrayUsingChildComponent(each: any[], childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    for (let index = 0; index < each.length; index++) {
+      const item = each[index];
+      const renderedChild = (
+        <childComponent.type {...{ ...childComponent.props, [childComponent.props?.item || "item"]: item, [childComponent.props?.index || "index"]: index }} />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key: index })
+      );
+    }
+    return renderedChildren;
+  }
+
+  private renderObjectUsingChildComponent(each: { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    const keys = Object.keys(each);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const item = each[key];
+      const renderedChild = (
+        <childComponent.type {...{ ...childComponent.props, [childComponent.props?.item || "item"]: item, [childComponent.props?.index || "index"]: key }} />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key })
+      );
+    }
+    return renderedChildren;
+  }
+
+  private isObject(item: any) {
+    return item !== null && typeof item === "object" && !Array.isArray(item);
+  }
 }
+
+export { For, ForProps };

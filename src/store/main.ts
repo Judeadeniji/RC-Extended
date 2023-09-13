@@ -383,8 +383,10 @@ export function useSignalAction<T extends Signal<T>>(sig: Signal<T>) {
  * @param {() => T} callback - The callback function to compute the new Signal value.
  * @returns {() => Signal<T>} A function that returns the computed Signal.
  */
-export function useComputedSignal<T>(callback: () => T) {
-  return useMemo(() => computed<T>(callback), [callback]);
+export function useComputedSignal<T>(signal: Signal<T>,callback: (value: T) => T) {
+  return useMemo(() => computed(() => {
+    return callback(signal.value)
+  }).value, [callback])
 }
 
 

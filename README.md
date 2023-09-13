@@ -15,13 +15,65 @@ With **rc-extended**, you get more than just syntax sugar. We're talking about a
 
 ### Awaiting Promises in Markup 🚀
 
+
+```javascript
+<Await promiseFn={buyRing}>
+  <DateComponent />
+</Await>
+```
+
+Where `DateComponent` is a child component using the `usePromiseData` hook:
+
+```javascript
+import { usePromiseData } from 'rc-extended';
+
+function DateComponent() {
+  const { isPending, isFulfilled, isRejected, result, error } = usePromiseData();
+
+  return (
+    <div>
+      {isPending && <p>Loading...</p>}
+      {isFulfilled && <p>Data: {result}</p>}
+      {isRejected && <p>Error: {error.message}</p>}
+    </div>
+  );
+}
+```
+
+
 No more promises left hanging! The **Await** component lets you resolve promises directly in your markup. Say goodbye to callback hell.
 
 ### Looping with Ease 🔄
 
-Meet **For**, your loop master. It effortlessly loops over arrays, sending data to children while handling replication automatically. Say hello to cleaner and more efficient rendering.
+```javascript
+import { For } from "rc-extended"
+import { signal } from "rc-extended/store"
+
+const fruits = signal(['Apple', 'Banana', 'Orange', 'Grapes']);
+
+// $each is used to signify that the prop value is a signal
+<For $each={fruits}>
+  {(fruit, i) => (
+    <div key={i}>{item}</div>
+  )}
+</For>
+```
+
+Meet **For**, your loop master. It effortlessly loops over arrays and objects, sending data to children while handling replication automatically. Say hello to cleaner and more efficient rendering.
 
 ### Control Flow with Style 🎮
+
+```javascript
+<Switch fallback={<div>No condition matched</div>}>
+  <Match when={condition1}>
+    <div>Content for Condition 1</div>
+  </Match>
+  <Match when={condition2}>
+    <div>Content for Condition 2</div>
+  </Match>
+</Switch>
+```
+
 
 We introduce **Switch** and **Match** components, inspired by SolidJS. Control flow in JSX, like you've never seen before. It's like JavaScript switch case, but with a JSX twist.
 

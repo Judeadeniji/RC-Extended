@@ -164,6 +164,20 @@ function ListItemComponent({ item, index }) {
 }
 ```
 
+### Example 4: Using Signals with `For` component
+
+```javascript
+import { For } from "rc-extended"
+import { signal } from "rc-extended/store"
+
+const fruits = signal(['Apple', 'Banana', 'Orange', 'Grapes']);
+
+// $each is used to signify that the prop value is a signal
+<For $each={fruits}>
+  {/* Render your fruits */}
+</For>
+```
+
 ## Error Handling
 
 The `For` component includes robust error handling to ensure proper usage. It checks for the following:
