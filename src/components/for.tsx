@@ -51,9 +51,9 @@ class For<T> extends Component<ForProps<T>> {
     this.state = {};
     this.unsubscribe = () => {}
     if(this.props.$each && this.props.$each instanceof Signal) {
-      this.setState({
+      this.state = {
         signal: this.props.$each.value
-      })
+      }
     }
   }
   
@@ -69,9 +69,9 @@ class For<T> extends Component<ForProps<T>> {
     
     if($each) {
       this.unsubscribe = $each.subscribe((newState) => {
-        this.state = {
+        this.setState({
           signal: newState
-        }
+        })
       })
     }
   }

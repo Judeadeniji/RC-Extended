@@ -227,6 +227,10 @@ declare class Signal<T = any> {
 
 	get value(): T;
 	set value(value: T);
+	
+	update(updater: (value?: T) => T): void;
+	
+	set(value: T): void;
 }
 
 /** @internal */
@@ -338,6 +342,17 @@ Object.defineProperty(Signal.prototype, "value", {
 		}
 	},
 });
+
+Signal.prototype.update = function (updater) {
+  const oldvalue = this.value;
+  const newValue = updater(oldvalue);
+  
+  this.value = newValue;
+}
+
+Signal.prototype.set = function (value) {
+  this.update(value)
+}
 
 function signal<T>(value: T): Signal<T> {
 	return new Signal(value);

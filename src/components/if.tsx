@@ -1,4 +1,4 @@
-import React, { ReactNode, ReactElement, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Signal } from "../store"
 
 interface IfProps<> {
@@ -37,7 +37,7 @@ export function Show({ when, $when, fallback = null, children }: IfProps): React
     throw new TypeError("$when prop must receive a signal as value")
   }
   
-  const [whenV, setWhenV] = useState<any | false>($when.value || false)
+  const [whenV, setWhenV] = useState<any | false>($when ? $when.value : false)
   
   useEffect(() => {
     if ($when) {

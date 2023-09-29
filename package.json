@@ -1,6 +1,6 @@
 {
   "name": "rc-extended",
-  "version": "0.0.122",
+  "version": "0.0.1231",
   "description": "Cybernetically enhanced React components",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,6 +15,11 @@
       "types": "dist/src/store/index.d.ts",
       "import": "dist/src/store/index.js",
       "require": "dist/src/store/index.js"
+    },
+    "./functions": {
+      "types": "dist/src/functions/index.d.ts",
+      "import": "dist/src/functions/index.js",
+      "require": "dist/src/functions/index.js"
     }
   },
   "scripts": {

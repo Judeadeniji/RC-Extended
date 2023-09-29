@@ -114,25 +114,24 @@ type EmitterReturn = { number: number; take: (until: number) => Omit<EmitterRetu
 export function useIntervalEmitter(interval: number): EmitterReturn {
   const [number, setNumber] = useState<number>(0);
   const [limit, setLimit] = useState<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | number | string | undefined>(undefined);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
+    const id = setInterval(() => {
       setNumber(c => c + 1);
     }, interval);
 
     return () => {
       if (typeof limit === "number" && number >= limit) {
-         clearInterval(intervalRef.current);
+         clearInterval(id);
       }
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
-      }
+      if (id !== null) {
+        clearInterval(id);
+       }
     };
   }, [interval]);
 
   const take = (until: number) => {
-    setLimit(() => until);
+    setLimit(until);
     return { number };
   };
 
