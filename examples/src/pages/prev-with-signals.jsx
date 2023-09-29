@@ -13,6 +13,7 @@ export default function PrevWithSignals1() {
   }
   
   function handleUndo() {
+    input.value = curr.value
     curr.value = prev.value;
     prev.value = null;
   }

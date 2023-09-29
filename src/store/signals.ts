@@ -351,7 +351,7 @@ Signal.prototype.update = function (updater) {
 }
 
 Signal.prototype.set = function (value) {
-  this.update(value)
+  this.update(() => value)
 }
 
 function signal<T>(value: T): Signal<T> {
