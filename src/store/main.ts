@@ -2,28 +2,64 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { signal, effect, computed, batch, Signal } from "./signals.js";
 import useReactive from "../hooks/reactive"
 
-const StoreMap = new Map<string, Store>();
+// find a way to fix this type `any`
+const StoreMap = new Map<string, Store<any>>();
 
-export type State = Record<string, any>;
-type SignalState = Signal<State>;
-type Getters = Record<string, (state: State) => any>;
-type Actions = Record<string, (...args: any[]) => State>;
-type Computed = Record<string, (state: State) => any>;
-type Effects = Record<string, ((state: State) => unknown | (() => unknown))>;
+export type State<S> = Record<string, S>;
+type SignalState<S> = Signal<State<S>>;
+type Getters<S> = Record<string, (state: State<S>) => any>;
+type Actions<S> = Record<string, (...args: any[]) => State<S>>;
+type Computed<S> = Record<string, (state: State<S>) => any>;
+type Effects<S> = Record<string, ((state: State<S>) => unknown | (() => unknown))>;
 type ComputedSignals<T> = Record<string, () => T>;
 type EffectSignals = Record<string, () => void>;
 type ActionSignals = Record<string, (...args: any[]) => typeof batch>;
 type GettersSignal = Record<string, (...args: any[]) => typeof batch>;
+type WrappedState<S> = Record<string, Signal<S>>;
+type CentralizedState<CS> = Record<string, CS>
 
 /**
  * Definitions for creating a store.
  */
-interface Definitions {
-  state: () => State;
-  actions?: Actions;
-  computed?: Computed;
-  effects?: Effects;
-  getters?: Getters;
+interface Definitions<S> {
+  state: () => State<S>;
+  actions?: Actions<S>;
+  computed?: Computed<S>;
+  effects?: Effects<S>;
+  getters?: Getters<S>;
+}
+
+function centralizeState<S>(states: WrappedState<S>) {
+  const merged: CentralizedState<S> = {}
+  for (const key in states) {
+    const state: Signal<S> = states[key]
+    Object.defineProperty(merged, key, {
+      get() {
+        return state.value
+      },
+      set(value) {
+        state.value = value
+      }
+    })
+  };
+  
+  return merged;
+}
+
+/**
+ * Wraps state properties.
+ * @param {State} state - The state properties.
+ * @returns an object with each items [key, signal(value)] as signals.
+ */
+function wrapState<S>(state: State<S>) {
+  const wrappedState: WrappedState<S> = {};
+  
+  for (const key in state) {
+    const element = state[key]
+    wrappedState[key] = signal<S>(element)
+  }
+  
+  return wrappedState;
 }
 
 /**
@@ -32,18 +68,18 @@ interface Definitions {
  * @param state - The state signal.
  * @returns Computed signals.
  */
-function wrapComputed<T>(computedObj: Computed, state: SignalState): ComputedSignals<T | State> {
-  const computedSignals: ComputedSignals<T | State> = {};
+function wrapComputed<S, T>(computedObj: Computed<S>, state: SignalState<S>): ComputedSignals<T | State<S>> {
+  const wrappedComputed: ComputedSignals<T | State<S>> = {};
 
   for (const key in computedObj) {
     if (computedObj.hasOwnProperty(key)) {
       const element = computed(() => computedObj[key](state.value));
 
-      computedSignals[key] = () => element.value as T;
+      wrappedComputed[key] = () => element.value as T;
     }
   }
 
-  return computedSignals;
+  return wrappedComputed;
 }
 
 /**
@@ -52,13 +88,27 @@ function wrapComputed<T>(computedObj: Computed, state: SignalState): ComputedSig
  * @param store - The store.
  * @returns Effects.
  */
-function wrapEffects(effs: Effects, store: Store): EffectSignals {
+function wrapEffects<S>(effs: Effects<S>, store: Store<S>): EffectSignals {
   const effects: EffectSignals = {};
+  
+  // I'm fine with using any here no typecheking here is unnecessary 
+  function getDependent(key: string, state: any, computed: any) {
+    const s = state[key]
+    const c = computed[key];
+    if (!s && s == null || !s && s == undefined) {
+      return s;
+    }
+    
+    if (typeof c === "function") return c();
+    
+    // state -> computed > undefined;
+    return s || c || undefined;
+  }
 
   for (const key in effs) {
     if (effs.hasOwnProperty(key)) {
-      const shouldDepend = key in store.signal.value || key in store.computed;
-      const element = effect(() => effs[key](shouldDepend ? store.signal.value[key] || store.computed[key]() : undefined));
+      const shouldDepend = key in store.centralState || key in store.computed;
+      const element = effect(() => effs[key](shouldDepend ? getDependent(key, store.centralState, store.computed) :  undefined));
 
       effects[key] = element;
     }
@@ -73,8 +123,10 @@ function wrapEffects(effs: Effects, store: Store): EffectSignals {
  * @param state - The state signal.
  * @returns Action signals.
  */
-function wrapActions(actions: Actions, state: SignalState): ActionSignals {
+//function wrapActions(actions: Actions, state: SignalState): ActionSignals {
+function wrapActions<S>(actions: Actions<S>, store: Store<S>): ActionSignals {
   const acs: ActionSignals = {};
+  const cs: CentralizedState<S> = store.centralState
 
   for (const action in actions) {
     if (actions.hasOwnProperty(action)) {
@@ -82,12 +134,16 @@ function wrapActions(actions: Actions, state: SignalState): ActionSignals {
 
       acs[action] = (...args: any[]) => {
         return batch<any>(() => {
-          const newState = element(state.value, ...args);
+          // const newState = element(state.value, ...args);
+          const newState = element(cs, ...args);
           if (newState instanceof Promise) {
-            newState.then((r) => state.value = r);
-            return state.value;
+            // newState.then((r) => state.value = r);
+            newState.then((r) => updateState(cs, r))
+            // return state.value;
+            return cs;
           }
-          return state.value = newState;
+          // return state.value = newState;
+           return updateState(cs, newState)
         });
       };
     }
@@ -97,12 +153,26 @@ function wrapActions(actions: Actions, state: SignalState): ActionSignals {
 }
 
 /**
+ * Helper function to help wrapActions update the state
+ */
+  function updateState<CS>(oldState: CentralizedState<CS>, newState: State<CS>) {
+
+    for (const [key, value] of Object.entries(newState)) {
+      if (value != oldState[key]) {
+        oldState[key] = newState[key]
+      }
+    }
+     
+     return oldState;
+  }
+
+/**
  * Wraps getters.
  * @param getters - The getters.
  * @param store - The store.
  * @returns Getters signals.
  */
-function wrapGetters(getters: Getters, store: Store): GettersSignal {
+function wrapGetters<S>(getters: Getters<S>, store: Store<S>): GettersSignal {
   const gtrrs: GettersSignal = {};
 
   for (const key in getters) {
@@ -132,20 +202,27 @@ function wrapGetters(getters: Getters, store: Store): GettersSignal {
 /**
  * Store class for managing state, actions, computed properties, effects, and getters.
  */
-class Store {
-  public signal: SignalState;
-  readonly actions: Actions;
-  readonly getters: Getters;
+class Store<S> {
+  readonly signal: SignalState<S>;
+  public _state: State<S>;
+  public state: WrappedState<S>;
+  readonly centralState: CentralizedState<S>;
+  readonly actions: ActionSignals;
+  readonly getters: Getters<S>;
   readonly effects: EffectSignals;
-  readonly computed: ComputedSignals<State>;
+  readonly computed: ComputedSignals<State<S>>;
 
   /**
    * Creates a new Store instance.
    * @param definitions - Definitions for the store.
    */
-  constructor(private readonly storeName: string, definitions: Definitions) {
-    this.signal = signal(definitions.state());
-    this.actions = wrapActions(definitions.actions || {}, this.signal);
+  constructor(private readonly storeName: string, definitions: Definitions<S>) {
+    this._state = definitions.state();
+    this.signal = signal(this._state);
+    this.state = wrapState(this._state);
+    this.centralState = centralizeState(this.state);
+    this.actions = wrapActions(definitions.actions || {}, this);
+    // this.actions = wrapActions(definitions.actions || {}, this.signal);
     this.computed = wrapComputed(definitions.computed || {}, this.signal);
     this.effects = wrapEffects(definitions.effects || {}, this);
     this.getters = wrapGetters(definitions.getters || {}, this);
@@ -159,7 +236,7 @@ class Store {
    * Gets the state signal.
    * @returns The state signal.
    */
-  getSignal(): SignalState {
+  getSignal(): SignalState<S> {
     return this.signal;
   }
 
@@ -209,15 +286,14 @@ class Store {
  * @throws Error if a store with the same name already exists.
  * @returns A function to create and access the store.
  */
-export function defineStore(storeName: string, definitions: Definitions): () => Store {
+export function defineStore<S>(storeName: string, definitions: Definitions<S>): () => Store<S> {
   if (StoreMap.has(storeName)) {
     throw new Error(`Store with name "${storeName}" already exists. Use 'useStore("${storeName}")' to access it.`);
   }
 
   const store = new Proxy(new Store(storeName, definitions), {
-    get(target: Store, key: string) {
+    get(target: Store<S>, key: string) {
       const provider: Record<string, any> = {
-        ...target.signal.value,
         ...target.actions,
         ...target.computed,
         ...target.getters,
@@ -226,12 +302,21 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
         getComputed: target.getComputed,
         getGetters: target.getGetters,
       };
+      
+      for(const key in target.state) {
+        provider[key] = target.centralState[key]
+      }
 
       if (key in provider) {
         return provider[key];
+      } else if (key === "state") {
+        return target.state
       } else {
-        throw new Error(`Property '${key}' not found in store '${storeName}'.`);
+        throw new Error(`Property '${key}' not found in store '${storeName}', This might be a bug in RC-Extended.`);
       }
+    },
+    set() {
+      return false;
     }
   });
 
@@ -246,7 +331,7 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
  * @throws Error if the store is not found.
  * @returns The store.
  */
-export function useStore(storeName: string): Store {
+export function useStore<S>(storeName: string): Store<S> {
   const store = StoreMap.get(storeName);
 
   if (store === undefined) {
@@ -254,11 +339,19 @@ export function useStore(storeName: string): Store {
   }
 
 // this why I don't really like react
-  const [, setState] = useState<SignalState>(store.getSignal());
+  const [, setState] = useState<{}>({});
 
-  useEffect(() => store.getSignal().subscribe((newState) => {
-    setState(signal(newState));
-  }), []);
+  useEffect(() => {
+    
+    // this implementation is slow as f**
+    const unsubs = Object.entries(store.state).map(([, sig]) => {
+      return sig.subscribe(() => setState({}))
+    })
+    
+    return () => {
+      unsubs.forEach(s => s())
+    }
+  }, []);
 
   return store;
 }
@@ -269,8 +362,8 @@ export function useStore(storeName: string): Store {
  * @returns {Store} The store.
  * @throws {Error} If the store is not found.
  */
-function getStore(storeNameOrStore: string | Store): Store {
-  let store: Store;
+function getStore<S>(storeNameOrStore: string | Store<S>): Store<S> {
+  let store: Store<S>;
   if (typeof storeNameOrStore === "string") {
     const _store = StoreMap.get(storeNameOrStore);
     if (!_store) {
@@ -294,7 +387,7 @@ function getStore(storeNameOrStore: string | Store): Store {
  * @throws {Error} If the store is not found.
  * @returns {Actions} The actions.
  */
-export function useStoreActions(storeNameOrStore: string | Store): Actions {
+export function useStoreActions<S>(storeNameOrStore: string | Store<S>): ActionSignals {
   const store = getStore(storeNameOrStore);
   return store.getActions();
 }
@@ -305,7 +398,7 @@ export function useStoreActions(storeNameOrStore: string | Store): Actions {
  * @throws {Error} If the store is not found.
  * @returns {SignalState} The state signal.
  */
-export function useStoreSignal(storeNameOrStore: string | Store): SignalState {
+export function useStoreSignal<S>(storeNameOrStore: string | Store<S>): SignalState<S> {
   const store = getStore(storeNameOrStore);
   return store.getSignal();
 }
@@ -316,7 +409,7 @@ export function useStoreSignal(storeNameOrStore: string | Store): SignalState {
  * @throws {Error} If the store is not found.
  * @returns {GettersSignal} The getters.
  */
-export function useStoreGetters(storeNameOrStore: string | Store): GettersSignal {
+export function useStoreGetters<S>(storeNameOrStore: string | Store<S>): GettersSignal {
   const store = getStore(storeNameOrStore);
   return store.getGetters();
 }
@@ -328,7 +421,7 @@ export function useStoreGetters(storeNameOrStore: string | Store): GettersSignal
  * @throws {Error} If the store is not found.
  * @returns {ComputedSignals<State>} The computed properties.
  */
-export function useStoreComputed(storeNameOrStore: string | Store): ComputedSignals<State> {
+export function useStoreComputed<S>(storeNameOrStore: string | Store<S>): ComputedSignals<State<S>> {
   const store = getStore(storeNameOrStore);
   return store.getComputed();
 }
@@ -430,16 +523,16 @@ export function $watch<T extends Signal<T>>(sig: Signal<T>, callback: (newValue:
  * @param {() => (void | (() => void))} cb - The callback function to run.
  * @returns {void} Nothing.
  */
-export function $effect(cb: () => (void | (() => void))): void {
+export function $effect(cb: () => (undefined | (() => void))): void {
   return useEffect(() => {
-    let unsubscribe;
+    let unsubscribe: undefined | (() => void);
     effect(() => unsubscribe = cb());
     
     // there's a problem with this implementation unsubscribe might be called twice
     // one from signal.effect and the other by useEffect 
-    if (typeof unsubscribe === "function") {
+    if (unsubscribe && typeof unsubscribe === "function") {
       return () => {
-        unsubscribe()
+        unsubscribe?.()
       };
     }
   }, [])

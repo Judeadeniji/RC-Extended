@@ -5,7 +5,7 @@ const usePrevStore = defineStore("prev", {
   state() {
     return ({
       prev: null,
-      curr: null,
+      curr: "green",
       input: ''
     })
   },
@@ -13,7 +13,6 @@ const usePrevStore = defineStore("prev", {
     submit(state, ev) {
       ev.preventDefault();
       return {
-        ...state,
         prev: state.curr,
         curr: state.input,
         input: "",
@@ -21,17 +20,20 @@ const usePrevStore = defineStore("prev", {
     },
     undo(state) {
       return {
-        ...state,
         prev: null,
         curr: state.prev,
         input: state.curr,
       }
     },
-    handleChange(state, input) {
-      return {
-        ...state,
-        input
-      }
+    handleChange(_, input) {
+      return { input }
+    }
+  },
+  effects: {
+    // an effect that depends on store.prev, this will run when curr changes 
+    prev: (newValue) => {
+      alert(`curr changed to ${newValue}`)
+      console.log("Previous value has changed to ", newValue)
     }
   }
 })
@@ -45,7 +47,7 @@ export default function PrevWithSignals1() {
     <p>Prev: {prev}</p>
     <p>Current: {curr}</p>
       <form onSubmit={submit} className="flex gap-x-2">
-        <input onChange={(e) => handleChange(e.targey.value)} value={input} type="text" className="border h-10 w-full rounded focus:outline-gray-400 px-3" />
+        <input onChange={(e) => handleChange(e.target.value)} value={input} type="text" className="border h-10 w-full rounded focus:outline-gray-400 px-3" />
         <button className="h-10 px-2 rounded bg-black text-white font-semibold">
           Submit
         </button>
