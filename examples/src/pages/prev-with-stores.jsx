@@ -1,4 +1,4 @@
-import { defineStore } from "rc-extended/store"
+import { defineStore, getStore, derived, $effect, $derived } from "rc-extended/store"
 
 // you'll probably want to define this in something like a store.js file
 const usePrevStore = defineStore("prev", {
@@ -32,22 +32,32 @@ const usePrevStore = defineStore("prev", {
   effects: {
     // an effect that depends on store.prev, this will run when curr changes 
     prev: (newValue) => {
-      alert(`curr changed to ${newValue}`)
       console.log("Previous value has changed to ", newValue)
     }
   }
 })
 
 
+
 export default function PrevWithSignals1() {
-  const { prev, curr, undo, submit, input, handleChange } = usePrevStore()
+  const store = usePrevStore()
+  const { prev, curr, undo, submit, input, handleChange } = store;
   
+  const dy$ = $derived(store, (parentState) => {
+    return { input: `${parentState.input} - derived` }
+  })
+  
+  function x(v) {
+    handleChange(v)
+  }
   return (
     <div className="w-full flex flex-col items-center">
     <p>Prev: {prev}</p>
     <p>Current: {curr}</p>
+    <p>Main: {input}</p>
+    <p>Derived: {dy$.value["input"]}</p>
       <form onSubmit={submit} className="flex gap-x-2">
-        <input onChange={(e) => handleChange(e.target.value)} value={input} type="text" className="border h-10 w-full rounded focus:outline-gray-400 px-3" />
+        <input onChange={(e) => x(e.target.value)} value={input} type="text" className="border h-10 w-full rounded focus:outline-gray-400 px-3" />
         <button className="h-10 px-2 rounded bg-black text-white font-semibold">
           Submit
         </button>
