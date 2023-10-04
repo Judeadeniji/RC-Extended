@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Home from "./pages/home.jsx";
+import Counter from "./pages/counter.jsx";
 import PrevSig from "./pages/prev-with-signals.jsx";
 import PrevSig2 from "./pages/prev-with-signals-2.jsx";
 import PrevStores from "./pages/prev-with-stores.jsx";
@@ -12,7 +13,7 @@ import "./index.css";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <PrevStores />,
+    element: <Counter />,
   },
   {
     path: "/prev-sig-2",

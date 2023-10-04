@@ -5,7 +5,8 @@ import { signal, Signal, batch, effect, computed } from "./signals.js"
 import { ActionSignals, /*SignalState,*/ ComputedSignals, GettersSignal, State } from "./types.js";
 import { getStore } from "./helpers.js";
 
-var StoreProvider: Context<Store<unknown> | undefined>;
+// another `any` to change 
+var StoreProvider: Context<Store<any> | undefined>;
 
 /**
  * Hook to access a store by its name.
@@ -31,7 +32,9 @@ export function useStore<S>(storeName: string): Store<S> {
     })
     
     return () => {
-      unsubs.forEach(s => s())
+      unsubs.forEach(s => s());
+      //dispose all effects
+      store.disposeEffects();
     }
   }, []);
 
@@ -184,14 +187,17 @@ export function $watch<T extends Signal<T>>(sig: Signal<T>, callback: (newValue:
 export function $effect(cb: () => (undefined | (() => void))): void {
   return useEffect(() => {
     let unsubscribe: undefined | (() => void);
-    effect(() => unsubscribe = cb());
+    const dispose = effect(() => unsubscribe = cb());
     
     // there's a problem with this implementation unsubscribe might be called twice
     // one from signal.effect and the other by useEffect 
     if (unsubscribe && typeof unsubscribe === "function") {
       return () => {
+        dispose()
         unsubscribe?.()
       };
+    } else {
+      return dispose
     }
   }, [])
 }
@@ -234,10 +240,16 @@ interface ProviderProps {
   children: ReactElement<any, any>;
 };
 
-export function createProviderFromStoreName(storeName: string) {
-  const store: Store<unknown> = getStore(storeName);
+export function createProvider<S>(_store: string | Store<S>) {
+  const store: Store<S> = getStore(_store);
   
-  return ({ children, ...props }: ProviderProps) => {
+  return function ({ children, ...props }: ProviderProps) {
+    
+    // we use an useEffect to dispose all effects when the component unmounts
+    useEffect(() => {
+      return store.disposeEffects
+    }, [])
+    
     return createElement(StoreProvider.Provider, { ...props, value: store }, children)
   }
 }
@@ -246,16 +258,33 @@ function getStoreContext(hookName: string) {
   const ctx = useContext(StoreProvider);
   
   if (!ctx) {
-    throw new ReferenceError(`You Should only use ${hookName} within a provider. You can create a provider using createProviderFromStoreName(storeName)`)
+    throw new ReferenceError(`You Should only use ${hookName} within a provider. You can create a provider using createProvider(store)`)
   }
   
   return ctx;
 }
 
-export function getActions() {
+export function getActions<S>() {
   const store = getStoreContext("getActions()");
   
   const actions = store.actions;
+  
+  // this why I don't really like react
+    const [, setState] = useState<{}>({});
+  
+    useEffect(() => {
+      
+      // this implementation is slow as f**
+      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: Signal<S>]) => {
+        return sig.subscribe(() => {
+          setState({})
+        })
+      })
+      return () => {
+        unsubs.forEach(s => s())
+      }
+    }, []);
+    
   
   return actions;
 }
@@ -271,7 +300,7 @@ export function getState() {
 export function getSingleState(stateName: string) {
   const store = getStoreContext(`getSingleState(${stateName})`);
   
-  const state = store.getSignal(stateName);
+  const state = store.centralState[stateName];
   
   return state;
 }
