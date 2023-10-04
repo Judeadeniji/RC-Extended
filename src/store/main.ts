@@ -7,7 +7,7 @@ import { useStore } from "./hooks.js";
  * Create a map to store instances of the Store class.
  * @type {Map<string, Store<any>>}
  */
-export const StoreMap = new Map<string, Store<any>>();
+export const StoreMap = new Map<string, Store>();
 
 /**
  * Type representing the StoreMap.
@@ -17,13 +17,13 @@ export type StoreMapType = typeof StoreMap;
 
 /**
  * Centralize state properties into a single object.
- * @param {SignalState<S>} states - State properties.
- * @returns {CentralizedState<S>} - Centralized state object.
+ * @param {SignalState} states - State properties.
+ * @returns {CentralizedState} - Centralized state object.
  */
-function centralizeState<S>(states: SignalState<S>): CentralizedState<S> {
-  const merged: CentralizedState<S> = {}
+function centralizeState<S>(states: SignalState<S>) {
+  const merged = {}
   for (const key in states) {
-    const state: Signal<S> = states[key]
+    const state = states[key]
     Object.defineProperty(merged, key, {
       get() {
         return state.value
@@ -39,15 +39,17 @@ function centralizeState<S>(states: SignalState<S>): CentralizedState<S> {
 
 /**
  * Wrap state properties as signals.
- * @param {State<S>} state - The state properties.
- * @returns {SignalState<S>} - An object with each item [key, signal(value)] as signals.
+ * @param {State} state - The state properties.
+ * @returns {SignalState} - An object with each item [key, signal(value)] as signals.
  */
-function wrapState<S>(state: State<S>): SignalState<S> {
-  const wrappedState: SignalState<S> = {};
+function wrapState(state: State) {
+  const wrappedState: {
+    [key: string]: Signal<State[typeof key]>
+  } = {};
 
   for (const key in state) {
     const element = state[key]
-    wrappedState[key] = signal<S>(element)
+    wrappedState[key] = signal(element)
   }
 
   return wrappedState;
@@ -55,12 +57,12 @@ function wrapState<S>(state: State<S>): SignalState<S> {
 
 /**
  * Wrap computed properties and their dependencies.
- * @param {Computed<S>} computedObj - Computed properties.
- * @param {CentralizedState<S>} state - The centralized state.
- * @returns {ComputedSignals<T | State<S>>} - Computed signals.
+ * @param {Computed} computedObj - Computed properties.
+ * @param {CentralizedState} state - The centralized state.
+ * @returns {ComputedSignals<T | State>} - Computed signals.
  */
-function wrapComputed<S, T>(computedObj: Computed<S>, state: CentralizedState<S>): ComputedSignals<T | State<S>> {
-  const wrappedComputed: ComputedSignals<T | State<S>> = {};
+function wrapComputed<T>(computedObj: Computed, state: CentralizedState) {
+  const wrappedComputed: ComputedSignals = {};
 
   for (const key in computedObj) {
     if (computedObj.hasOwnProperty(key)) {
@@ -75,11 +77,11 @@ function wrapComputed<S, T>(computedObj: Computed<S>, state: CentralizedState<S>
 
 /**
  * Wrap effects with dependencies.
- * @param {Effects<S>} effs - Effects.
- * @param {Store<S>} store - The store.
+ * @param {Effects} effs - Effects.
+ * @param {Store} store - The store.
  * @returns {EffectSignals} - Effects.
  */
-function wrapEffects<S>(effs: Effects<S>, store: Store<S>): EffectSignals {
+function wrapEffects(effs: Effects, store: Store): EffectSignals {
   const effects: EffectSignals = {};
 
   /**
@@ -111,13 +113,13 @@ function wrapEffects<S>(effs: Effects<S>, store: Store<S>): EffectSignals {
 
 /**
  * Wrap actions with a batch function.
- * @param {Actions<S>} actions - Actions.
- * @param {Store<S>} store - The store.
+ * @param {Actions} actions - Actions.
+ * @param {Store} store - The store.
  * @returns {ActionSignals} - Action signals.
  */
-function wrapActions<S>(actions: Actions<S>, store: Store<S>): ActionSignals {
+function wrapActions(actions: Actions, store: Store): ActionSignals {
   const acs: ActionSignals = {};
-  const cs: CentralizedState<S> = store.centralState
+  const cs: CentralizedState = store.centralState
 
   for (const action in actions) {
     if (actions.hasOwnProperty(action)) {
@@ -145,7 +147,7 @@ function wrapActions<S>(actions: Actions<S>, store: Store<S>): ActionSignals {
  * @param {State<CS>} newState - The new state.
  * @returns {CentralizedState<CS>} - The updated state.
  */
-function updateState<CS>(oldState: CentralizedState<CS>, newState: State<CS>): CentralizedState<CS> {
+function updateState(oldState: CentralizedState, newState: State) {
 
   for (const [key, value] of Object.entries(newState)) {
     if (value != oldState[key]) {
@@ -158,11 +160,11 @@ function updateState<CS>(oldState: CentralizedState<CS>, newState: State<CS>): C
 
 /**
  * Wrap getters with batch function and provide access to other store properties.
- * @param {Getters<S>} getters - Getters.
- * @param {Store<S>} store - The store.
+ * @param {Getters} getters - Getters.
+ * @param {Store} store - The store.
  * @returns {GettersSignal} - Getters signals.
  */
-function wrapGetters<S>(getters: Getters<S>, store: Store<S>): GettersSignal {
+function wrapGetters(getters: Getters, store: Store): GettersSignal {
   const gtrrs: GettersSignal = {};
 
   for (const key in getters) {
@@ -191,33 +193,33 @@ function wrapGetters<S>(getters: Getters<S>, store: Store<S>): GettersSignal {
 
 /**
  * Subscribe type for signals and effects.
- * @typedef {keyof EffectSignals & keyof SignalState<S>} Subscribe<S>
+ * @typedef {keyof EffectSignals & keyof SignalState} Subscribe
  */
- type Subscribe<S> = keyof EffectSignals & keyof SignalState<S>;
+ type Subscribe<Type> = keyof EffectSignals & keyof SignalState<Type>;
 
 /**
  * Store class for managing state, actions, computed properties, effects, and getters.
  * @class
  * @template S - The type of state managed by the store.
  */
-class Store<S> {
-  readonly signal: (key: string) => Signal<S>;
-  public _state: State<S>;
-  public state: SignalState<S>;
-  readonly defs: Definitions<S>
-  readonly centralState: CentralizedState<S>;
+class Store {
+  readonly signal: (key: string) => Signal;
+  public _state: State;
+  public state;
+  readonly defs: Definitions
+  readonly centralState: CentralizedState;
   readonly actions: ActionSignals;
-  readonly getters: Getters<S>;
+  readonly getters: Getters;
   readonly effects: EffectSignals;
-  readonly computed: ComputedSignals<State<S>>;
+  readonly computed: ComputedSignals;
 
   /**
    * Creates a new Store instance.
    * @constructor
    * @param {string} storeName - The name of the store.
-   * @param {Definitions<S>} definitions - Definitions for the store.
+   * @param {Definitions} definitions - Definitions for the store.
    */
-  constructor(private readonly storeName: string, definitions: Definitions<S>) {
+  constructor(private readonly storeName: string, definitions: Definitions) {
     this.defs = definitions;
     this._state = this.defs.state();
     this.state = wrapState(this._state);
@@ -240,9 +242,9 @@ class Store<S> {
   /**
    * Gets the state signal.
    * @param {string} key - The name of the state.
-   * @returns {Signal<S>} - The state signal.
+   * @returns {Signal} - The state signal.
    */
-  getSignal(key: string): Signal<S> {
+  getSignal(key: string): Signal {
     return this.signal(key);
   }
 
@@ -256,7 +258,7 @@ class Store<S> {
 
   /**
    * Gets the computed properties.
-   * @returns {ComputedSignals<State<S>>} - The computed properties.
+   * @returns {ComputedSignals<State>} - The computed properties.
    */
   getComputed() {
     return this.computed;
@@ -284,7 +286,7 @@ class Store<S> {
 
   /**
    * Gets the getters.
-   * @returns {Getters<S>} - The getters.
+   * @returns {Getters} - The getters.
    */
   getGetters() {
     return this.getters;
@@ -292,11 +294,11 @@ class Store<S> {
 
   /**
    * Subscribe to a state signal or effect.
-   * @param {Subscribe<S>} key - The key to subscribe to.
+   * @param {Subscribe} key - The key to subscribe to.
    * @param {(newState: S) => void} listener - The listener function.
    * @returns {() => void} - A function to unsubscribe.
    */
-  subscribe<Key extends Subscribe<S>>(key: Key, listener: (newState: S) => void) {
+  subscribe<Key extends string>(key: Key, listener: (newState: State[Key]) => void) {
    const unsubscribe = this.state[key].subscribe(listener);
    
    return () => {
@@ -311,11 +313,11 @@ class Store<S> {
  * @template S
  * @template Name
  * @param {Name} storeName - The name of the store.
- * @param {Definitions<S>} definitions - Definitions for the store.
+ * @param {Definitions} definitions - Definitions for the store.
  * @throws {Error} - If a store with the same name already exists.
- * @returns {() => Store<S>} - A function to create and access the store.
+ * @returns {() => Store} - A function to create and access the store.
  */
-export function defineStore<S, Name extends keyof StoreMapType>(storeName: Name, definitions: Definitions<S>): () => Store<S> {
+export function defineStore(storeName: string, definitions: Definitions): () => Store {
   if (typeof storeName !== "string") {
     throw new Error ("Store Name Must be a string")
   }
@@ -326,7 +328,7 @@ export function defineStore<S, Name extends keyof StoreMapType>(storeName: Name,
 
   
   const store = new Proxy(new Store(storeName, definitions), {
-    get(target: Store<S>, key: keyof Store<S>) {
+    get(target: Store, key: keyof Store) {
       
     type Provider = {
       getSignal: typeof target.getSignal,
@@ -354,7 +356,7 @@ export function defineStore<S, Name extends keyof StoreMapType>(storeName: Name,
       if (key in provider) {
         return provider[key];
       } else if (key === "state" || key === "_state" || key === "defs" || key === "name" || key === "signal" || key === "centralState" || key === "actions" || key === "getters") {
-        return target[key as keyof Store<S>]
+        return target[key as keyof Store]
       } else {
         target.disposeEffects()
         throw new Error(`Property '${key}' not found in store '${storeName}', This might be a bug in RC-Extended.`);
@@ -373,13 +375,13 @@ export function defineStore<S, Name extends keyof StoreMapType>(storeName: Name,
 /**
  * Create a derived store based on the parent store and a function to derive state.
  * @template S - The type of state managed by the store.
- * @param {Store<S>} store - The parent store.
- * @param {(parentState: State<S>) => State<S>} fn - The function to derive state.
- * @returns {{value: CentralizedState<S>, subscribe: () => void}} - The derived store object.
+ * @param {Store} store - The parent store.
+ * @param {(parentState: State) => State} fn - The function to derive state.
+ * @returns {{value: CentralizedState, subscribe: () => void}} - The derived store object.
  */
-export function derived<S>(store: Store<S>, fn: (parentState: State<S>) => State<S>) {
+export function derived(store: Store, fn: (parentState: State) => State) {
   const state = () => fn({ ...store.centralState })
-  const derivedStore = new Store<S>(store.name, { state });
+  const derivedStore = new Store(store.name, { state });
   
   let unsubscribers: (() => void)[] = [];
   
@@ -418,13 +420,13 @@ export function derived<S>(store: Store<S>, fn: (parentState: State<S>) => State
 /**
  * Create a readonly view of a store.
  * @template S - The type of state managed by the store.
- * @param {Store<S>} store - The store.
+ * @param {Store} store - The store.
  * @returns {{value: Record<string, any>, subscribe: (cb: (key: keyof typeof store.state, newValue: S) => void) => () => void}} - Readonly store object.
  */
-export function readonly<S>(store: Store<S>) {
+export function readonly(store: Store) {
   return {
     get value() {
-      const cs: CentralizedState<S> = store.centralState;
+      const cs: CentralizedState = store.centralState;
       type Cs = typeof cs
       return new Proxy(cs, {
         get<Key extends keyof Cs>(target: Cs, key: Key): Cs[Key] {
@@ -435,8 +437,8 @@ export function readonly<S>(store: Store<S>) {
         }
       })
     },
-    subscribe<Key extends keyof typeof store.state>(cb: (key: Key, newValue: S) => void) {
-      const fns = Object.entries(store.state).map(([key, signal]: [key: string, signal: Signal<S>]) => {
+    subscribe<Key extends keyof typeof store.state>(cb: (key: Key, newValue: State[Key]) => void) {
+      const fns = Object.entries(store.state).map(([key, signal]: [key: string, signal: Signal]) => {
         return signal.subscribe((newValue) => cb(key as Key, newValue))
       })
       

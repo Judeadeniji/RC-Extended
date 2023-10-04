@@ -8,8 +8,8 @@ export function noop() {}
  * @returns {Store} The store.
  * @throws {Error} If the store is not found.
  */
-export function getStore<S>(storeNameOrStore: string | Store<S>): Store<S> {
-  let store: Store<S>;
+export function getStore(storeNameOrStore: string | Store): Store {
+  let store: Store;
   if (typeof storeNameOrStore === "string") {
     const _store = StoreMap.get(storeNameOrStore);
     if (!_store) {

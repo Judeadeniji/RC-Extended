@@ -6,7 +6,7 @@ import { ActionSignals, /*SignalState,*/ ComputedSignals, GettersSignal, State }
 import { getStore } from "./helpers.js";
 
 // another `any` to change 
-var StoreProvider: Context<Store<any> | undefined>;
+var StoreProvider: Context<Store | undefined>;
 
 /**
  * Hook to access a store by its name.
@@ -14,7 +14,7 @@ var StoreProvider: Context<Store<any> | undefined>;
  * @throws Error if the store is not found.
  * @returns The store.
  */
-export function useStore<S>(storeName: string): Store<S> {
+export function useStore(storeName: string): Store {
   const store = StoreMap.get(storeName);
 
   if (store === undefined) {
@@ -48,7 +48,7 @@ export function useStore<S>(storeName: string): Store<S> {
  * @throws {Error} If the store is not found.
  * @returns {Actions} The actions.
  */
-export function useStoreActions<S>(storeNameOrStore: string | Store<S>): ActionSignals {
+export function useStoreActions(storeNameOrStore: string | Store): ActionSignals {
   const store = getStore(storeNameOrStore);
   return store.getActions();
 }
@@ -59,7 +59,7 @@ export function useStoreActions<S>(storeNameOrStore: string | Store<S>): ActionS
  * @throws {Error} If the store is not found.
  * @returns {SignalState} The state signal.
  *//*
-export function useStoreSignal<S>(storeNameOrStore: string | Store<S>): SignalState<S> {
+export function useStoreSignal(storeNameOrStore: string | Store): SignalState {
   const store = getStore(storeNameOrStore);
   return store.getSignal();
 }*/
@@ -70,7 +70,7 @@ export function useStoreSignal<S>(storeNameOrStore: string | Store<S>): SignalSt
  * @throws {Error} If the store is not found.
  * @returns {GettersSignal} The getters.
  */
-export function useStoreGetters<S>(storeNameOrStore: string | Store<S>): GettersSignal {
+export function useStoreGetters(storeNameOrStore: string | Store): GettersSignal {
   const store = getStore(storeNameOrStore);
   return store.getGetters();
 }
@@ -82,7 +82,7 @@ export function useStoreGetters<S>(storeNameOrStore: string | Store<S>): Getters
  * @throws {Error} If the store is not found.
  * @returns {ComputedSignals<State>} The computed properties.
  */
-export function useStoreComputed<S>(storeNameOrStore: string | Store<S>): ComputedSignals<State<S>> {
+export function useStoreComputed(storeNameOrStore: string | Store) {
   const store = getStore(storeNameOrStore);
   return store.getComputed();
 }
@@ -222,8 +222,8 @@ export function $signal<T>(value: T) {
   return signalRef.current;
 }
 
-export function $derived<S>(store: Store<S>, fn: (parentState: State<S>) => State<S>) {
-  const dy = useRef(derived<S>(store, fn)).current
+export function $derived(store: Store, fn: (parentState: State) => State) {
+  const dy = useRef(derived(store, fn)).current
   
   $effect(() => {
     return dy.subscribe();
@@ -234,14 +234,14 @@ export function $derived<S>(store: Store<S>, fn: (parentState: State<S>) => Stat
   }
 }
 
-StoreProvider = (<S>() => createContext<Store<S> | undefined>(undefined))();
+StoreProvider = (() => createContext<Store | undefined>(undefined))();
 
 interface ProviderProps {
   children: ReactElement<any, any>;
 };
 
-export function createProvider<S>(_store: string | Store<S>) {
-  const store: Store<S> = getStore(_store);
+export function createProvider(_store: string | Store) {
+  const store: Store = getStore(_store);
   
   return function ({ children, ...props }: ProviderProps) {
     
@@ -264,7 +264,7 @@ function getStoreContext(hookName: string) {
   return ctx;
 }
 
-export function getActions<S>() {
+export function getActions() {
   const store = getStoreContext("getActions()");
   
   const actions = store.actions;
@@ -275,7 +275,7 @@ export function getActions<S>() {
     useEffect(() => {
       
       // this implementation is slow as f**
-      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: Signal<S>]) => {
+      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: Signal]) => {
         return sig.subscribe(() => {
           setState({})
         })
