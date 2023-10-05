@@ -2,7 +2,7 @@ import { ReactElement, createElement, useState , useEffect, useRef, useMemo, cre
 import { Store, StoreMap, derived } from "./main.js";
 import useReactive from "../hooks/reactive.js"
 import { signal, Signal, batch, effect, computed } from "./signals.js"
-import { ActionSignals, /*SignalState,*/ ComputedSignals, GettersSignal, State } from "./types.js";
+import { ActionSignals, /*SignalState,*/ ComputedSignals, Getters, GettersSignal, State } from "./types.js";
 import { getStore } from "./helpers.js";
 
 // another `any` to change 
@@ -94,7 +94,7 @@ export function useStoreComputed(storeNameOrStore: string | Store) {
  * @throws Error if a non-Signal value is provided.
  * @returns An array containing the current value of the Signal and a function to modify it.
  */
-export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
+export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev: T) => T) | T) => void] {
   // Check if a Signal instance is provided
   if (!(sig instanceof Signal)) {
     throw new Error("To use 'useSignal', you must provide a Signal as a value.");
@@ -119,6 +119,7 @@ export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
       batch(() => {
         // Update the Signal's value based on the provided newState
         if (typeof newState === "function") {
+          //@ts-expect-error
           signalRef.current.value = newState(reactiveSignal.value);
           return;
         }
@@ -133,7 +134,7 @@ export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
  * @param sig - The Signal to get the value from.
  * @returns The current value of the Signal.
  */
-export function useSignalValue<T extends Signal<T>>(sig: Signal<T>) {
+export function useSignalValue<T>(sig: Signal<T>): T {
   return useSignal(sig)[0];
 }
 
@@ -142,7 +143,7 @@ export function useSignalValue<T extends Signal<T>>(sig: Signal<T>) {
  * @param sig - The Signal to perform actions on.
  * @returns A function to modify the Signal's value.
  */
-export function useSignalAction<T extends Signal<T>>(sig: Signal<T>) {
+export function useSignalAction<T>(sig: Signal<T>) {
   return useSignal(sig)[1];
 }
 
@@ -153,9 +154,9 @@ export function useSignalAction<T extends Signal<T>>(sig: Signal<T>) {
  * @param {() => T} callback - The callback function to compute the new Signal value.
  * @returns {() => Signal<T>} A function that returns the computed Signal.
  */
-export function $computed<T>(signal: Signal<T>,callback: (value: T) => T) {
+export function $computed<T>(callback: () => T) {
   return useMemo(() => computed(() => {
-    return callback(signal.value)
+    return callback()
   }).value, [callback])
 }
 
@@ -167,7 +168,7 @@ export function $computed<T>(signal: Signal<T>,callback: (value: T) => T) {
  * @param {(newValue: T) => void | (() => void)} callback - The callback function to invoke when the Signal changes.
  * @param {boolean} [shouldNotUnmount=false] - Set to true if you want to keep watching even after unmounting the component.
  */
-export function $watch<T extends Signal<T>>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
+export function $watch<T>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
   useEffect(() => {
     // Subscribe to the Signal and store the unsubscribe function
     const unsubscribe = sig.subscribe(callback);
@@ -305,7 +306,7 @@ export function getSingleState(stateName: string) {
   return state;
 }
 
-export function getGetters() {
+export function getGetters(): Getters {
   const store = getStoreContext("getGetters()");
   
   const getters = store.getGetters();

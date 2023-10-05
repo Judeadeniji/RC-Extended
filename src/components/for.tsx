@@ -24,10 +24,12 @@ type ExclusiveForProps<T> = ForProps<T> & ExclusiveEachProps<T>;
 
 // Define a generic type for the child component's props
 type ForChildComponentProps<T> = {
-  item: {
+  item?: {
     [key in keyof T]: T[key];
-  },
-  index: T extends any[] ? number : string
+  } | T extends string ? {
+    [key in keyof T]: T[key]
+  } : T,
+  index?: T extends any[] ? number : string
 };
 
 
