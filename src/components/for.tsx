@@ -5,19 +5,31 @@ import { Signal } from "../store"
  * Props for the For component.
  */
 interface ForProps<T> {
-  /**
-   * An array or object to iterate over.
-   */
-  each: T[] | { [key: string]: T };
-  /**
-   * The Signal to iterate over.
-   */
-  $each?: Signal<T[]>;
-  /**
-   * The child component to render for each item.
-   */
-  children: React.ReactElement<any, any> & { props: { [key: string]: any } } | ((item: T, index: string | number) => React.ReactNode);
-}
+  each?: T[] | { [key: string]: T };
+  $each?: Signal<T[] | { [key: string]: T }>;
+  children:
+    | React.ReactElement<any, any> & {
+        props: T extends T[] ? { item: T[number]; index: number } : { [key in keyof T]: T[key] };
+      }
+    | ((item: T, index: T extends T[] ? number : string) => React.ReactNode);
+} 
+
+// Add this type to enforce the exclusive presence of either 'each' or '$each'
+type ExclusiveEachProps<T> = 
+  ({ each: T[] | { [key: string]: any } } & { $each?: never }) | 
+  ({ $each: Signal<T[] | { [key: string]: any }> } & { each?: never });
+
+// Combine the two types to ensure exclusivity
+type ExclusiveForProps<T> = ForProps<T> & ExclusiveEachProps<T>;
+
+// Define a generic type for the child component's props
+type ForChildComponentProps<T> = {
+  item: {
+    [key in keyof T]: T[key];
+  },
+  index: T extends any[] ? number : string
+};
+
 
 /**
  * Component that iterates over an array or object and renders a child component for each item.
@@ -34,18 +46,18 @@ interface ForProps<T> {
  *   {(value, key) => <KeyValuePair key={key} value={value} />}
  * </For>
  *
- * @param {ForProps} props - The props for the For component.
- * @param {any[] | { [key: string]: any }} props.each - An array or an object to iterate over.
+ * @param {ExclusiveForProps} props - The props for the For component.
+ * @param {T[] | { [key: string]: any }} props.each - An array or an object to iterate over.
  * @param {ReactElement} props.children - The child component to render for each item.
  * @returns {ReactNode[]} An array of rendered child components.
  * @throws {Error} If used incorrectly with multiple children or an invalid `each` prop.
  */
-class For<T> extends Component<ForProps<T>> {
-  public props: ForProps<T>
-  public state: { signal?: T[] }
+class For<T> extends Component<ExclusiveForProps<T>> {
+  public props: ExclusiveForProps<T>
+  public state: { signal?: T[] | { [key: string]: any } }
   //@ts-ignore
   private unsubscribe: () => void
-  constructor(props: ForProps<T>) {
+  constructor(props: ExclusiveForProps<T>) {
     super(props)
     this.props = props;
     this.state = {};
@@ -116,7 +128,7 @@ class For<T> extends Component<ForProps<T>> {
    return this.renderUsingChildComponent(this.state.signal, children)
   }
 
-  private renderUsingFunction(each: any[] | { [key: string]: any }, renderFunction: Function) {
+  private renderUsingFunction(each: T[] | { [key: string]: any }, renderFunction: Function) {
     if (Array.isArray(each)) {
       return this.renderArrayUsingFunction(each, renderFunction);
     } else {
@@ -124,7 +136,7 @@ class For<T> extends Component<ForProps<T>> {
     }
   }
 
-  private renderArrayUsingFunction(each: any[], renderFunction: Function) {
+  private renderArrayUsingFunction(each: T[], renderFunction: Function) {
     const renderedChildren: React.ReactNode[] = [];
     for (let index = 0; index < each.length; index++) {
       const item = each[index];
@@ -154,7 +166,7 @@ class For<T> extends Component<ForProps<T>> {
     return renderedChildren;
   }
 
-  private renderUsingChildComponent(each: any[] | { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
+  private renderUsingChildComponent(each: T[] | { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
     if (Array.isArray(each)) {
       return this.renderArrayUsingChildComponent(each, childComponent);
     } else {
@@ -162,7 +174,7 @@ class For<T> extends Component<ForProps<T>> {
     }
   }
 
-  private renderArrayUsingChildComponent(each: any[], childComponent: React.ReactElement<any, any>) {
+  private renderArrayUsingChildComponent(each: T[], childComponent: React.ReactElement<any, any>) {
     const renderedChildren: React.ReactNode[] = [];
     for (let index = 0; index < each.length; index++) {
       const item = each[index];
@@ -197,4 +209,7 @@ class For<T> extends Component<ForProps<T>> {
   }
 }
 
-export { For, ForProps };
+ export {
+   For,
+   ForChildComponentProps
+ }

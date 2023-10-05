@@ -1,6 +1,6 @@
 export { Await } from "./src/components/await.js"
 export { Resolve } from "./src/components/resolve.js"
-export { For, ForProps } from "./src/components/for.js"
+export { For } from "./src/components/for.js"
 export { If, Show } from "./src/components/if.js"
 export { Switch, Match, type SwitchProps } from "./src/components/switch-match.js"
 export { Dynamic } from "./src/components/dynamic.js"
