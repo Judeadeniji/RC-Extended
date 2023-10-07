@@ -1,4 +1,6 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect } from "react";
+import { Signal, signal } from "../store/signals.js"
+import useReactive from "../hooks/reactive.js"
 
 /**
  * Props for the Switch component.
@@ -34,20 +36,50 @@ function Switch({ fallback, children }: SwitchProps): ReactNode | ReactNode[] {
 /**
  * Props for the Match component.
  * @typedef {Object} MatchProps
- * @property {boolean} when - The condition to match for rendering the children.
+ * @property {any} when - The condition to match for rendering the children.
+ * @property {Signal<any>} $when - The condition to match for rendering the children.
  * @property {ReactNode | ReactNode[]} children - The content to render when the condition is true.
  */
  type MatchProps = {
-   when: boolean;
+   when?: any;
+   $when?: Signal<any>;
    children: ReactNode | ReactNode[];
  }
+ 
+type ExclusiveMatchProps =
+  | ({ when: any; $when?: never })
+  | ({ when?: never; $when: Signal<any> });
+
 
 /**
  * This component renders its children when the specified condition is true.
  * @param {MatchProps} props - The props for the Match component.
  * @returns {ReactNode | null} The content to render or null if the condition is false.
  */
-function Match({ when, children }: MatchProps) {
+function Match({ when, $when, children }: MatchProps & ExclusiveMatchProps) {
+  
+  const whenV = useReactive($when?.value)
+  
+  useEffect(() => {
+    if(when && $when) {
+      throw new Error("Provide only one of $when or when as prop to <Match>")
+    }
+    
+    if ($when && !($when instanceof Signal)) {
+      throw new TypeError("$when prop must be a signal or an instance of Signal")
+    }
+    
+    if ($when) {
+      return $when.subscribe((newState: any) => {
+        whenV.value = newState
+      })
+    }
+  }, [])
+  
+  if ($when) {
+    return whenV.value ? children : null;
+  }
+  
   return when ? children : null;
 }
 

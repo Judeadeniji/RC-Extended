@@ -9,15 +9,13 @@ interface State {
 type SignalState<S> = {
   [key: string]: Signal<S>
 };
-type Getters = Record<string, (state: State) => any>;
 type Actions = Record<string, (...args: any[]) => State>;
 type Computed = Record<string, (state: any) => any>;
 type Effects = Record<string, ((state: State) => () => void)>;
 type ComputedSignals = Record<string, () => any>;
 type EffectSignals = Record<string, () => void>;
 type ActionSignals = Record<string, (...args: any[]) => typeof batch>;
-type GettersSignal = Record<string, (...args: any[]) => typeof batch>;
-type WrappedState = Record<string, Signal>;
+type WrappedState<T> = Record<string, Signal<T>>;
 type CentralizedState = Record<string, any>
 type Unsubscribe = (() => void) | void
 
@@ -26,18 +24,18 @@ interface Definitions {
   actions?: Actions;
   computed?: Computed;
   effects?: Effects;
-  getters?: Getters;
 }
 
 
-export const StoreMap = new Map<string, Store>();
+export const StoreMap = new Map<string, StoreType>();
 
 
-type StoreMapType = typeof StoreMap;
+type StoreType = CentralizedState & Actions & ComputedSignals
+;
 
 
-function centralizeState<S>(states: SignalState<S>) {
-  const merged = {}
+function centralizeState<S>(states: SignalState<S>): CentralizedState {
+  const merged: CentralizedState = {}
   for (const key in states) {
     const state = states[key]
     Object.defineProperty(merged, key, {
@@ -70,10 +68,13 @@ function wrapComputed<T>(computedObj: Computed, state: CentralizedState) {
   const wrappedComputed: ComputedSignals = {};
 
   for (const key in computedObj) {
-    if (computedObj.hasOwnProperty(key)) {
-      const element = computed(() => computedObj[key](state[key]));
+    if (state.hasOwnProperty(key)) {
+      const element = computed(() => computedObj[key].call(state[key], undefined));
 
       wrappedComputed[key] = () => element.value as T;
+    } else {
+      const element = computed(() => computedObj[key].call(state, undefined))
+      wrappedComputed[key] = () => element.value
     }
   }
 
@@ -95,7 +96,7 @@ function wrapEffects(effs: Effects, store: Store): EffectSignals {
   for (const key in effs) {
     if (effs.hasOwnProperty(key)) {
       const shouldDepend = key in store.centralState || key in store.computed;
-      const disposeFn = effect(() => effs[key](shouldDepend ? getDependent(key, store.centralState) :  undefined));
+      const disposeFn = effect(() => effs[key].call(store.centralState, shouldDepend ? getDependent(key, store.centralState) :  undefined));
 
       effects[key] = disposeFn;
     }
@@ -114,7 +115,7 @@ function wrapActions(actions: Actions, store: Store): ActionSignals {
 
       acs[action] = (...args: any[]) => {
         return batch<any>(() => {
-          const newState = element(cs, ...args);
+          const newState = element.call(cs, ...args);
           if (newState instanceof Promise) {
             newState.then((r) => updateState(cs, r))
             return cs;
@@ -139,44 +140,15 @@ function updateState(oldState: CentralizedState, newState: State) {
   return oldState;
 }
 
-function wrapGetters(getters: Getters, store: Store): GettersSignal {
-  const gtrrs: GettersSignal = {};
-
-  for (const key in getters) {
-    if (getters.hasOwnProperty(key)) {
-      const element = getters[key];
-
-      gtrrs[key] = () => {
-        return batch<any>(() => {
-          const provider: Record<string, any> = {
-            ...store.centralState,
-            ...store.actions,
-            ...store.computed,
-            getSignal: store.getSignal,
-            getActions: store.getActions,
-            getComputed: store.getComputed
-          };
-          const newState = element(provider);
-          return newState;
-        });
-      };
-    }
-  }
-
-  return gtrrs;
-}
-
  type Subscribe<Type> = keyof EffectSignals & keyof SignalState<Type>;
 
 class Store {
-  readonly signal: (key: string) => Signal;
   public _state: State;
   public state;
   readonly defs: Definitions
   readonly centralState: CentralizedState;
   readonly actions: ActionSignals;
-  readonly getters: Getters;
-  readonly effects: EffectSignals;
+  private readonly effects: EffectSignals;
   readonly computed: ComputedSignals;
 
   constructor(private readonly storeName: string, definitions: Definitions) {
@@ -184,43 +156,24 @@ class Store {
     this._state = this.defs.state();
     this.state = wrapState(this._state);
     this.centralState = centralizeState(this.state);
-    this.signal = (key: string) => this.state[key];
     this.actions = wrapActions(this.defs.actions || {}, this);
     this.computed = wrapComputed(this.defs.computed || {}, this.centralState);
     this.effects = wrapEffects(this.defs.effects || {}, this);
-    this.getters = wrapGetters(this.defs.getters || {}, this);
   }
 
  
   get name() {
     return this.storeName;
   }
-
-  getSignal(key: string): Signal {
-    return this.signal(key);
-  }
-
-  getActions() {
-    return this.actions;
-  }
-
-  getComputed() {
-    return this.computed;
-  }
-
+  
   disposeEffects() {
     for (const key in this.effects) {
-      const dispose = this.effects[key];
-      dispose();
+      this.disposeEffect(key);
     }
   }
 
   disposeEffect<Key extends keyof EffectSignals>(key: Key) {
     this.effects[key]()
-  }
-
-  getGetters() {
-    return this.getters;
   }
 
   subscribe<Key extends string>(key: Key, listener: (newState: State[Key]) => void) {
@@ -233,7 +186,7 @@ class Store {
   }
 }
 
-export function defineStore(storeName: string, definitions: Definitions): () => Store {
+export function defineStore(storeName: string, definitions: Definitions): () => StoreType {
   if (typeof storeName !== "string") {
     throw new Error ("Store Name Must be a string")
   }
@@ -242,26 +195,16 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
     throw new Error(`Store with name "${storeName}" already exists. Use 'useStore("${storeName}")' to access it.`);
   }
 
-  
   const store = new Proxy(new Store(storeName, definitions), {
     get(target: Store, key: keyof Store) {
       
     type Provider = {
-      getSignal: typeof target.getSignal,
-      getActions: typeof target.getActions,
-      getComputed: typeof target.getComputed,
-      getGetters: typeof target.getGetters,
       subscribe: typeof target.subscribe,
-    }
+    } & { [key: string]: any }
   
-      const provider: Provider & Record<string, any> = {
+      const provider: Provider = {
         ...target.actions,
         ...target.computed,
-        ...target.getters,
-        getSignal: target.getSignal,
-        getActions: target.getActions,
-        getComputed: target.getComputed,
-        getGetters: target.getGetters,
         subscribe: target.subscribe,
       };
       
@@ -271,7 +214,7 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
 
       if (key in provider) {
         return provider[key];
-      } else if (key === "state" || key === "_state" || key === "defs" || key === "name" || key === "signal" || key === "centralState" || key === "actions" || key === "getters") {
+      } else if (key === "state" || key === "_state" || key === "defs" || key === "name" || key === "centralState" || key === "actions") {
         return target[key as keyof Store]
       } else {
         target.disposeEffects()
@@ -281,9 +224,9 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
     set() {
       return false;
     }
-  });
+  }) as unknown;
 
-  StoreMap.set(storeName, store);
+  StoreMap.set(storeName, store as StoreType);
 
   return () => useStore(storeName);
 }
@@ -353,10 +296,9 @@ export function readonly(store: Store) {
 
 // hooks.ts
 
-// another `any` to change 
-var StoreProvider: Context<Store | undefined>;
+var StoreProvider: Context<StoreType | undefined>;
 
-export function useStore(storeName: string): Store {
+export function useStore(storeName: string) {
   const store = StoreMap.get(storeName);
 
   if (store === undefined) {
@@ -367,9 +309,8 @@ export function useStore(storeName: string): Store {
   const [, setState] = useState<{}>({});
 
   useEffect(() => {
-    
     // this implementation is slow as f**
-    const unsubs = Object.entries(store.state).map(([, sig]) => {
+    const unsubs = Object.entries(store.state).map(([, sig]: [key: string, value: any]) => {
       return sig.subscribe(() => setState({}))
     })
     
@@ -384,24 +325,18 @@ export function useStore(storeName: string): Store {
 }
 
 
-export function useStoreActions(storeNameOrStore: string | Store): ActionSignals {
+export function useStoreActions(storeNameOrStore: string | StoreType): ActionSignals {
   const store = getStore(storeNameOrStore);
-  return store.getActions();
+  return store.actions;
 }
 
-export function useStoreGetters(storeNameOrStore: string | Store): GettersSignal {
+export function useStoreComputed(storeNameOrStore: string | StoreType) {
   const store = getStore(storeNameOrStore);
-  return store.getGetters();
-}
-
-
-export function useStoreComputed(storeNameOrStore: string | Store) {
-  const store = getStore(storeNameOrStore);
-  return store.getComputed();
+  return store.computed;
 }
 
 
-export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
+export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev?: T) => T)) => void] {
   // Check if a Signal instance is provided
   if (!(sig instanceof Signal)) {
     throw new Error("To use 'useSignal', you must provide a Signal as a value.");
@@ -422,7 +357,7 @@ export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
   // Return the current value and a function to modify it
   return [
     reactiveSignal.value,
-    (newState: ((prev: T) => T) | T): void => {
+    (newState: ((prev?: T) => T)): void => {
       batch(() => {
         // Update the Signal's value based on the provided newState
         if (typeof newState === "function") {
@@ -435,11 +370,11 @@ export function useSignal<T extends Signal<T>>(sig: Signal<T>) {
   ];
 }
 
-export function useSignalValue<T extends Signal<T>>(sig: Signal<T>) {
-  return useSignal(sig)[0];
+export function useSignalValue<T>(sig: Signal<T>): T {
+  return useSignal(sig)[0] as T;
 }
 
-export function useSignalAction<T extends Signal<T>>(sig: Signal<T>) {
+export function useSignalAction<T>(sig: Signal<T>) {
   return useSignal(sig)[1];
 }
 
@@ -451,7 +386,7 @@ export function $computed<T>(signal: Signal<T>,callback: (value: T) => T) {
 
 
 
-export function $watch<T extends Signal<T>>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
+export function $watch<T>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
   useEffect(() => {
     // Subscribe to the Signal and store the unsubscribe function
     const unsubscribe = sig.subscribe(callback);
@@ -508,14 +443,14 @@ export function $derived(store: Store, fn: (parentState: State) => State) {
   }
 }
 
-StoreProvider = (() => createContext<Store | undefined>(undefined))();
+StoreProvider = createContext<StoreType | undefined>(undefined);
 
 interface ProviderProps {
   children: ReactElement<any, any>;
 };
 
-export function createProvider(_store: string | Store) {
-  const store: Store = getStore(_store);
+export function createProvider(_store: string | StoreType) {
+  const store = getStore(_store);
   
   return function ({ children, ...props }: ProviderProps) {
     
@@ -549,7 +484,7 @@ export function getActions() {
     useEffect(() => {
       
       // this implementation is slow as f**
-      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: Signal]) => {
+      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: any]) => {
         return sig.subscribe(() => {
           setState({})
         })
@@ -579,18 +514,10 @@ export function getSingleState(stateName: string) {
   return state;
 }
 
-export function getGetters() {
-  const store = getStoreContext("getGetters()");
-  
-  const getters = store.getGetters();
-  
-  return getters;
-}
-
 export function noop() {}
 
-export function getStore(storeNameOrStore: string | Store): Store {
-  let store: Store;
+export function getStore(storeNameOrStore: string | StoreType): StoreType {
+  let store: StoreType;
   if (typeof storeNameOrStore === "string") {
     const _store = StoreMap.get(storeNameOrStore);
     if (!_store) {

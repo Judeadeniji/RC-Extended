@@ -1,40 +1,89 @@
-import React, { Component } from "react";
-import { Signal } from "../store"
+/**
+ * @typedef {import("react").ReactElement} ReactElement
+ * @typedef {import("react").ReactNode} ReactNode
+ * @template T
+ */
+import React, { Component, ReactNode } from "react";
 
 /**
- * Props for the For component.
+ * @typedef {import("../store").Signal} Signal
+ * @template T
  */
+import { Signal } from "../store";
+
+/**
+ * Props for the `For` component.
+ * @template T
+ * @typedef {Object} ForProps
+ * @property {T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }} [each] - The iterable data source.
+ * @property {Signal<T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }>} [$each] - The Signal data source.
+ * @property {(ReactElement & { props: T extends T[] ? { item: T[number]; index: number } : T extends Map<any, T> ? { item: T; index: string } : T extends Set<T> ? { item: T; index: number } : { item: T; index: string } }) | ((item: T, index: T extends T[] ? number : string) => ReactNode)} children - The child component or function to render for each item in the data source.
+ */
+
 interface ForProps<T> {
-  each?: T[] | { [key: string]: T };
-  $each?: Signal<T[] | { [key: string]: T }>;
+  each?: Each<T>;
+  $each?: $Each<T>;
   children:
     | React.ReactElement<any, any> & {
-        props: T extends T[] ? { item: T[number]; index: number } : { [key in keyof T]: T[key] };
+        props: T extends T[]
+          ? { item: T[number]; index: number }
+          : T extends Map<any, T>
+          ? { item: T; index: string }
+          : T extends Set<T>
+          ? { item: T; index: number }
+          : { item: T; index: string };
       }
-    | ((item: T, index: T extends T[] ? number : string) => React.ReactNode);
-} 
+    | ((item: T, index: T extends T[] ? number : string) => ReactNode);
+}
 
-// Add this type to enforce the exclusive presence of either 'each' or '$each'
-type ExclusiveEachProps<T> = 
-  ({ each: T[] | { [key: string]: any } } & { $each?: never }) | 
-  ({ $each: Signal<T[] | { [key: string]: any }> } & { each?: never });
+type $Each<T> = Signal<Each<T>>
+  
+type Each<T> =
+    | T[]
+    | Map<any, T>
+    | Set<T>
+    | FormData
+    | Generator<T, void, unknown>
+    | Iterable<T>
+    | { [key: string]: T } // Add support for plain objects
 
-// Combine the two types to ensure exclusivity
-type ExclusiveForProps<T> = ForProps<T> & ExclusiveEachProps<T>;
-
-// Define a generic type for the child component's props
-type ForChildComponentProps<T> = {
-  item?: {
-    [key in keyof T]: T[key];
-  } | T extends string ? {
-    [key in keyof T]: T[key]
-  } : T,
-  index?: T extends any[] ? number : string
-};
+/**
+ * Props for the `For` component with exclusive `each` or `$each` usage.
+ * @template T
+ * @typedef {Object} ExclusiveEachProps
+ * @property {T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }} each - The iterable data source (mutually exclusive with `$each`).
+ * @property {never} [$each] - The Signal data source (mutually exclusive with `each`).
+ */
+type ExclusiveEachProps<T> =
+  | { each: T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }; $each?: never }
+  | { $each: Signal<T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }>; each?: never };
 
 
 /**
- * Component that iterates over an array or object and renders a child component for each item.
+ * Props for the `For` component that combine both `ForProps` and `ExclusiveEachProps`.
+ * @template T
+ * @typedef {ForProps<T> & ExclusiveEachProps<T>} ExclusiveForProps
+ */
+type ExclusiveForProps<T> = ForProps<T> & ExclusiveEachProps<T>;
+
+/**
+ * Props for the child component rendered by `For`.
+ * @template T
+ * @typedef {Object} ForChildComponentProps
+ * @property {{ item: T[number]; index: number } | { item: T; index: string }} item - The item and its index in the iterable.
+ */
+type ForChildComponentProps<T> = {
+  item: T extends T[]
+    ? { item: T[number]; index: number }
+    : T extends Map<any, T>
+    ? { item: T; index: string }
+    : T extends Set<T>
+    ? { item: T; index: number }
+    : { item: T; index: string };
+};
+
+/**
+ * The `For` component for rendering items from an iterable.
  *
  * @component
  * @example
@@ -48,63 +97,89 @@ type ForChildComponentProps<T> = {
  *   {(value, key) => <KeyValuePair key={key} value={value} />}
  * </For>
  *
- * @param {ExclusiveForProps} props - The props for the For component.
- * @param {T[] | { [key: string]: any }} props.each - An array or an object to iterate over.
- * @param {ReactElement} props.children - The child component to render for each item.
- * @returns {ReactNode[]} An array of rendered child components.
- * @throws {Error} If used incorrectly with multiple children or an invalid `each` prop.
+ * @template T
+ * @extends {Component<ExclusiveForProps<T>>}
  */
 class For<T> extends Component<ExclusiveForProps<T>> {
-  public props: ExclusiveForProps<T>
-  public state: { signal?: T[] | { [key: string]: any } }
-  //@ts-ignore
-  private unsubscribe: () => void
-  constructor(props: ExclusiveForProps<T>) {
-    super(props)
+  private unsubscribe: () => void;
+  state: {
+    [key: string]: any
+  }
+  /**
+   * Constructor for the `For` component.
+   * @param {ExclusiveForProps<T>} props - The component props.
+   */
+  constructor(public readonly props: ExclusiveForProps<T>) {
+    super(props);
     this.props = props;
     this.state = {};
-    this.unsubscribe = () => {}
-    if(this.props.$each && this.props.$each instanceof Signal) {
+    this.unsubscribe = () => {};
+    if (this.props.$each && this.props.$each instanceof Signal) {
       this.state = {
-        signal: this.props.$each.value
-      }
+        signal: this.props.$each.value,
+      };
     }
   }
-  
+
   componentDidMount() {
     const { each, $each } = this.props;
-    if (each && !Array.isArray(each) && !this.isObject(each)) {
-      throw new Error("each prop must be an array or an object <For each={[...]}> or <For each={{...}}>.");
+    if (
+      each &&
+      !Array.isArray(each) &&
+      !(each instanceof Map) &&
+      !(each instanceof Set) &&
+      !(each instanceof FormData) &&
+      !(isGenerator(each)) &&
+      !isIterable(each) && // Custom iterable detection
+      !isObject(each) // Check if it's a plain object
+    ) {
+      throw new Error(
+        "each prop must be an array, Map, Set, FormData, Generator, iterable, or plain object <For each={[...]}> or <For each={{...}}>."
+      );
     }
-    if ($each && $each instanceof Signal && !Array.isArray($each.value) && !this.isObject($each.value)) {
-      throw new Error("$each must be a signal prop with value which must be an array or an object <For $each={Signal([...])}> or <For each={Signal({...})}>.");
+    let peek: Each<T>;
+    if (
+      $each &&
+      $each instanceof Signal && (peek = $each.peek()) &&
+      !(
+        Array.isArray(peek) ||
+        peek instanceof Map ||
+        peek instanceof Set ||
+        peek instanceof FormData ||
+        isGenerator(peek) ||
+        isIterable(peek) || // Custom iterable detection
+        isObject(peek) // Check if it's a plain object
+      )
+    ) {
+      throw new Error(
+        "$each must be a signal prop with value which must be an array, Map, Set, FormData, Generator, iterable, or plain object <For $each={Signal([...])}> or <For each={Signal({...})}>."
+      );
     }
-    
-    
-    if($each) {
+
+    if ($each) {
       this.unsubscribe = $each.subscribe((newState) => {
         this.setState({
-          signal: newState
-        })
-      })
+          signal: newState,
+        });
+      });
     }
   }
-  
+
   componentWillUnmount() {
     if (this.unsubscribe) {
       this.unsubscribe();
     }
-  } 
+  }
 
   render() {
     const { each, $each, children } = this.props;
-    
-    if($each && typeof children === "function") {
-      return this.renderWithSignal(children, true)
+
+    if ($each && typeof children === "function") {
+      return this.renderWithSignal(children, true);
     }
-    
-    if($each) {
-      return this.renderWithSignal(children, false)
+
+    if ($each) {
+      return this.renderWithSignal(children, false);
     }
 
     if (each && typeof children === "function") {
@@ -114,27 +189,42 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     if (Array.isArray(children) || !React.isValidElement(children)) {
       throw new Error("Only provide one valid child element or function to <For> component");
     }
-    
+
     return this.renderUsingChildComponent(each, children);
   }
-  
+
   private renderWithSignal(children: any, isFn: boolean) {
     if (!this.state.signal) {
-      throw new ReferenceError("$each is not Defined")
+      throw new ReferenceError("$each is not Defined");
     }
-    
-    if(isFn) {
-      return this.renderUsingFunction(this .state.signal, children)
+
+    if (isFn) {
+      return this.renderUsingFunction(this.state.signal, children);
     }
-    
-   return this.renderUsingChildComponent(this.state.signal, children)
+
+    return this.renderUsingChildComponent(this.state.signal, children);
   }
 
-  private renderUsingFunction(each: T[] | { [key: string]: any }, renderFunction: Function) {
+  private renderUsingFunction(
+    each: T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T },
+    renderFunction: Function
+  ) {
     if (Array.isArray(each)) {
       return this.renderArrayUsingFunction(each, renderFunction);
+    } else if (each instanceof Map) {
+      return this.renderMapUsingFunction(each, renderFunction);
+    } else if (each instanceof Set) {
+      return this.renderSetUsingFunction(each, renderFunction);
+    } else if (each instanceof FormData) {
+      return this.renderFormDataUsingFunction(each, renderFunction);
+    } else if (isGenerator(each)) {
+      return this.renderGeneratorUsingFunction(each as Generator<T, void, unknown>, renderFunction);
+    } else if (isIterable(each)) {
+      return this.renderIterableUsingFunction(each as Iterable<T>, renderFunction);
+    } else if (isObject(each)) {
+      return this.renderObjectUsingFunction(each as { [key: string]: T }, renderFunction); // Render plain objects
     } else {
-      return this.renderObjectUsingFunction(each, renderFunction);
+      throw new Error("Unsupported iterable type");
     }
   }
 
@@ -152,7 +242,76 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     return renderedChildren;
   }
 
-  private renderObjectUsingFunction(each: { [key: string]: any }, renderFunction: Function) {
+  private renderMapUsingFunction(each: Map<any, T>, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    each.forEach((item, key) => {
+      const renderedChild = renderFunction(item, key);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key })
+          : renderedChild
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderSetUsingFunction(each: Set<T>, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    each.forEach((item) => {
+      const renderedChild = renderFunction(item, index++);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key: index })
+          : renderedChild
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderFormDataUsingFunction(each: FormData, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    each.forEach((value, key) => {
+      const renderedChild = renderFunction(value, key);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key })
+          : renderedChild
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderGeneratorUsingFunction(each: Generator<T, void, unknown>, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    for (const item of each) {
+      const renderedChild = renderFunction(item, index++);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key: index })
+          : renderedChild
+      );
+    }
+    return renderedChildren;
+  }
+
+  private renderIterableUsingFunction(each: Iterable<T>, renderFunction: Function) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    for (const item of each) {
+      const renderedChild = renderFunction(item, index++);
+      renderedChildren.push(
+        React.isValidElement(renderedChild)
+          ? React.cloneElement(renderedChild, { key: index })
+          : renderedChild
+      );
+    }
+    return renderedChildren;
+  }
+
+  private renderObjectUsingFunction(each: { [key: string]: T }, renderFunction: Function) {
     const renderedChildren: React.ReactNode[] = [];
     const keys = Object.keys(each);
     for (let i = 0; i < keys.length; i++) {
@@ -167,12 +326,34 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     }
     return renderedChildren;
   }
-
-  private renderUsingChildComponent(each: T[] | { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
+  
+  private renderUsingChildComponent(
+    each:
+      | T[]
+      | Map<any, T>
+      | Set<T>
+      | FormData
+      | Generator<T, void, unknown>
+      | Iterable<T>
+      | { [key: string]: T },
+    childComponent: React.ReactElement<any, any>
+  ) {
     if (Array.isArray(each)) {
       return this.renderArrayUsingChildComponent(each, childComponent);
+    } else if (each instanceof Map) {
+      return this.renderMapUsingChildComponent(each, childComponent);
+    } else if (each instanceof Set) {
+      return this.renderSetUsingChildComponent(each, childComponent);
+    } else if (each instanceof FormData) {
+      return this.renderFormDataUsingChildComponent(each, childComponent);
+    } else if (isGenerator(each)) {
+      return this.renderGeneratorUsingChildComponent(each as Generator<T, void, unknown>, childComponent);
+    } else if (isIterable(each)) {
+      return this.renderIterableUsingChildComponent(each as Iterable<T>, childComponent);
+    } else if (isObject(each)) {
+      return this.renderObjectUsingChildComponent(each as { [key: string]: T }, childComponent); // Render plain objects
     } else {
-      return this.renderObjectUsingChildComponent(each, childComponent);
+      throw new Error("Unsupported iterable type");
     }
   }
 
@@ -181,7 +362,13 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     for (let index = 0; index < each.length; index++) {
       const item = each[index];
       const renderedChild = (
-        <childComponent.type {...{ ...childComponent.props, [childComponent.props?.item || "item"]: item, [childComponent.props?.index || "index"]: index }} />
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: index,
+          }}
+        />
       );
       renderedChildren.push(
         React.cloneElement(renderedChild, { key: index })
@@ -190,14 +377,121 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     return renderedChildren;
   }
 
-  private renderObjectUsingChildComponent(each: { [key: string]: any }, childComponent: React.ReactElement<any, any>) {
+  private renderMapUsingChildComponent(each: Map<any, T>, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    each.forEach((item, key) => {
+      const renderedChild = (
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: key,
+          }}
+        />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key })
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderSetUsingChildComponent(each: Set<T>, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    each.forEach((item) => {
+      const renderedChild = (
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: index++,
+          }}
+        />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key: index })
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderFormDataUsingChildComponent(each: FormData, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    each.forEach((value, key) => {
+      const renderedChild = (
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: value,
+            [childComponent.props?.index || "index"]: key,
+          }}
+        />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key })
+      );
+    });
+    return renderedChildren;
+  }
+
+  private renderGeneratorUsingChildComponent(each: Generator<T, void, unknown>, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    for (const item of each) {
+      const renderedChild = (
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: index,
+          }}
+        />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key: index })
+      );
+      index++;
+    }
+    return renderedChildren;
+  }
+
+  private renderIterableUsingChildComponent(each: Iterable<T>, childComponent: React.ReactElement<any, any>) {
+    const renderedChildren: React.ReactNode[] = [];
+    let index = 0;
+    for (const item of each) {
+      const renderedChild = (
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: index,
+          }}
+        />
+      );
+      renderedChildren.push(
+        React.cloneElement(renderedChild, { key: index })
+      );
+      index++;
+    }
+    return renderedChildren;
+  }
+
+  private renderObjectUsingChildComponent(each: { [key: string]: T }, childComponent: React.ReactElement<any, any>) {
     const renderedChildren: React.ReactNode[] = [];
     const keys = Object.keys(each);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       const item = each[key];
       const renderedChild = (
-        <childComponent.type {...{ ...childComponent.props, [childComponent.props?.item || "item"]: item, [childComponent.props?.index || "index"]: key }} />
+        <childComponent.type
+          {...{
+            ...childComponent.props,
+            [childComponent.props?.item || "item"]: item,
+            [childComponent.props?.index || "index"]: key,
+          }}
+        />
       );
       renderedChildren.push(
         React.cloneElement(renderedChild, { key })
@@ -206,12 +500,36 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     return renderedChildren;
   }
 
-  private isObject(item: any) {
-    return item !== null && typeof item === "object" && !Array.isArray(item);
-  }
 }
 
- export {
-   For,
-   ForChildComponentProps
- }
+// Export the For component and ForChildComponentProps type
+export { For, ForChildComponentProps };
+
+/**
+ * Helper function to detect custom iterable objects.
+ * @param {any} obj - The object to check for iterability.
+ * @returns {boolean} - True if the object is iterable, false otherwise.
+ */
+function isIterable(obj: any): boolean {
+  return Symbol.iterator in Object(obj);
+}
+
+/**
+ * Helper function to detect plain objects.
+ * @param {any} obj - The object to check for being a plain object.
+ * @returns {boolean} - True if the object is a plain object, false otherwise.
+ */
+function isObject(obj: any): boolean {
+  return Object.prototype.toString.call(obj) === "[object Object]";
+}
+
+/**
+ * Helper function to detect Generator functions.
+ * @template T
+ * @param {any} value - The value to check for being a Generator function.
+ * @returns {value is Generator<T, void, unknown>} - True if the value is a Generator function, false otherwise.
+ */
+function isGenerator<T>(value: any): value is Generator<T, void, unknown> {
+  return typeof value === 'function' && value.constructor?.name === 'GeneratorFunction';
+}
+

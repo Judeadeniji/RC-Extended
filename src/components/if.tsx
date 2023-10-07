@@ -40,7 +40,7 @@ export function Show({ when, $when, fallback = null, children }: IfProps): React
   const [whenV, setWhenV] = useState<any | false>($when ? $when.value : false)
   
   useEffect(() => {
-    if ($when) {
+    if ($when instanceof Signal) {
       return $when.subscribe(n => setWhenV(n))
     }
   }, [])
