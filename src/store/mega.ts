@@ -412,7 +412,7 @@ export function useStoreComputed(storeNameOrStore: string | StoreType) {
 }
 
 
-export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev?: T) => T)) => void] {
+export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev: T) => T) | T) => void] {
   // Check if a Signal instance is provided
   if (!(sig instanceof Signal)) {
     throw new Error("To use 'useSignal', you must provide a Signal as a value.");
@@ -433,10 +433,10 @@ export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev?: T) => T)) 
   // Return the current value and a function to modify it
   return [
     reactiveSignal.value,
-    (newState: ((prev?: T) => T)): void => {
+    (newState: ((prev: T) => T) | T): void => {
       batch(() => {
         // Update the Signal's value based on the provided newState
-        if (typeof newState === "function") {
+        if (newState instanceof Function) {
           signalRef.current.value = newState(reactiveSignal.value);
           return;
         }
