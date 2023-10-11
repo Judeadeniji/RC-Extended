@@ -12,8 +12,20 @@ export function cn(...inputs: ClassValue[]) {
 // maintain a global view state
 export const $view = signal<"signals" | "stores">("signals")
 
+interface Todo {
+  id: string | number | symbol;
+  task: string;
+  completed: true | false;
+}
+
+type State = {
+  todos: Todo[],
+  input: string,
+  tab: "all" | "completed"
+}
+
 export const useTodos = defineStore("todos", {
-  state: () => ({
+  state: (): State => ({
     todos: [
       {
         id: crypto.randomUUID(),
@@ -30,15 +42,15 @@ export const useTodos = defineStore("todos", {
     tab: "all"
   }),
   computed: {
-    total() {
+    total(this: State) {
       return this.todos.length
     },
-    completed() {
+    completed(this: State) {
       return this.todos.filter(i => i.completed)
     },
   },
   actions: {
-    addTodo(_, e) {
+    addTodo(this: State, _, e) {
       e.preventDefault();
       const task = this.input;
       this.input = ""
@@ -49,10 +61,9 @@ export const useTodos = defineStore("todos", {
         description: "Todo added successfully. 🎉",
       })
     },
-    removeTodo(_, id) {
+    removeTodo(this: State, _, id) {
       const index = this.todos.findIndex(t => t.id === id)
       if (index > -1) {
-        const todo = this.todos[index]
         const prev = [...this.todos]
         this.todos.splice(index, 1)
         this.todos = [...this.todos]
@@ -65,7 +76,7 @@ export const useTodos = defineStore("todos", {
               this.todos = prev
             },
             altText: "Undo"
-          }, "Undo")
+          }, "Undo") as any
         })
       }
     },
@@ -78,19 +89,22 @@ export const useTodos = defineStore("todos", {
       
       state.input = text
     },
-    switchTab(_, value) {
+    switchTab(this: State, _, value) {
       this.tab = value 
     }
   },
   // we can also run effects
   effects: {
     // an effect that runs when state.todos changes
-    todosEff() {
+    todosEff(this: State) {
       console.log("todos was mutated", this.todos)
+      
+      return () => {}
     },
     // an effect that runs when state.tab changes
-    tabsEff() {
-      console.log("tabs was changed to ", this.tabs)
+    tabsEff(this: State) {
+      console.log("tabs was changed to ", this.tab)
+      return () => {}
     },
   }
 })

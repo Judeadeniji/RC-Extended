@@ -12,7 +12,7 @@ import { $view } from "@/lib/utils"
 function App() {
   const view = useSignalValue($view)
   return (
-    <ErrorBoundary fallback={e => (<p>{e?.stack}</p>)}>
+    <ErrorBoundary fallback={(e: Error | null) => (<p>{e?.stack}</p>)}>
       <ThemeProvider defaultTheme="dark" storageKey="rc-extended-example-theme">
         <main className="min-w-full min-h-full max-w-lg md:mx-auto">
           <Header />

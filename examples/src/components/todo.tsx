@@ -3,12 +3,11 @@ import { cn } from "@/lib/utils"
 import { $signal, signal, useSignal, useSignalValue, useSignalAction, $computed } from "rc-extended/store"
 import { Switch, Match, Show, For } from "rc-extended"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch as Toggle } from "@/components/ui/switch"
 import { $view } from "@/lib/utils"
-import { ToastAction } from "@/components/ui/toast"
+import { ToastAction, ToastActionElement } from "@/components/ui/toast"
 import { toast } from "@/components/ui/use-toast"
 
 interface Todos {
@@ -18,7 +17,7 @@ interface Todos {
 }
 
 // create a global signal as a source of truth
-const tab = signal("all")
+const tab = signal<"all" | "completed">("all")
 const todos = signal<Todos[]>([
   {
     id: crypto.randomUUID(),
@@ -55,10 +54,10 @@ function TabHeader() {
   const [value, setValue] = useSignal(tab)
   return (
     <section className="rounded-md bg-gray-100 dark:bg-zinc-800 p-1 flex items-center flex-row w-full">
-      <div onClick={() => setValue("all")} className={cn("transition-colors duration-300 text-center font-medium text-md w-1/2 text-zinc-700 dark:text-zinc-400 py-1 rounded-md", value === "all" ? "shadow-sm bg-white dark:bg-black dark:text-white" : "bg-none")}>
+      <div onClick={() => setValue(() => "all")} className={cn("transition-colors duration-300 text-center font-medium text-md w-1/2 text-zinc-700 dark:text-zinc-400 py-1 rounded-md", value === "all" ? "shadow-sm bg-white dark:bg-black dark:text-white" : "bg-none")}>
         <p>All</p>
       </div>
-      <div onClick={() => setValue("completed")} className={cn("animate-in slide-in-from-left transition-colors duration-300 text-center font-medium text-md w-1/2 text-zinc-700 dark:text-zinc-400 py-1 rounded-md", value === "completed" ? "shadow-sm bg-white dark:bg-black dark:text-white" : "bg-none")}>
+      <div onClick={() => setValue(() => "completed")} className={cn("animate-in slide-in-from-left transition-colors duration-300 text-center font-medium text-md w-1/2 text-zinc-700 dark:text-zinc-400 py-1 rounded-md", value === "completed" ? "shadow-sm bg-white dark:bg-black dark:text-white" : "bg-none")}>
         <p>Completed</p>
       </div>
     </section>
@@ -68,7 +67,7 @@ function TabHeader() {
 function TodoItems() {
   const value = useSignalValue(tab);
   const { total, uncompleted, completed } = $computed(() => {
-    const t = todos.value
+    const t: Todos[] = todos.value
     const total = t.length
     const completed = t.filter(i => i.completed)
     const uncompleted = total - completed.length
@@ -129,7 +128,7 @@ function TodoItem({ todo }: any) {
     const index = _todos.findIndex(i => i.id === todo.id)
     
     if (index !== -1) {
-      setTodos(todos => {
+      setTodos((todos = []) => {
         todos[index].completed = value
         return [...todos]
       })
@@ -137,15 +136,14 @@ function TodoItem({ todo }: any) {
       toast({
         variant: value ? "success" : "destructive",
         description: value ? "Todo completed hurray 🥳." : "Todo reverted back to incomplete",
-        action: !value && <ToastAction onClick={() => onCheckedChange(!value)} className="whitespace-nowrap border border-white hover:border-0 hover:bg-red-600" altText="Undo">Undo</ToastAction>
+        action: (!value && <ToastAction onClick={() => onCheckedChange(!value)} className="whitespace-nowrap border border-white hover:border-0 hover:bg-red-600" altText="Undo">Undo</ToastAction>) as ToastActionElement 
       })
     }
   }
   
-  function removeTodo(id) {
+  function removeTodo(id: string) {
       const index = _todos.findIndex(t => t.id === id)
       if (index > -1) {
-        const todo = _todos[index]
         const prev = [..._todos]
         _todos.splice(index, 1)
         setTodos(() => [..._todos])
@@ -192,6 +190,7 @@ export function TodoApp() {
     input.value = ""
     if (task.trim() === "") return;
     const id = crypto.randomUUID()
+    //@ts-ignore
     todoAction((todos) => [{ id, task, completed: false }, ...todos])
     toast({
       variant: "success",
@@ -199,7 +198,6 @@ export function TodoApp() {
       action: <ToastAction onClick={() => {
         const index = _todos.findIndex(t => t.id === id)
         if (index > -1) {
-          const todo = _todos[index]
           const prev = [..._todos]
           _todos.splice(index, 1)
           todoAction(() => prev)

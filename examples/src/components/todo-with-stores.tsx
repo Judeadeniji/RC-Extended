@@ -3,13 +3,18 @@ import { Switch, Match, Show, For } from "rc-extended"
 import { useSignalAction } from "rc-extended/store"
 import { PlusSquare } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch as Toggle } from "@/components/ui/switch"
 import { ToastAction } from "@/components/ui/toast"
 import { toast } from "@/components/ui/use-toast"
 import { $view } from "@/lib/utils"
+
+interface Todos {
+  id: string | number | symbol;
+  task: string;
+  completed: true | false;
+}
 
 function Tab() {
   const { tab } = useTodos()
@@ -89,10 +94,10 @@ function TodoItems() {
 
 // using rc-extended's runtime magic, typescript will yell at us that's why are using type `any`
 function TodoItem({ todo, index }: any) {
-  const { todos, addTodo, removeTodo, state } = useTodos()
+  const { todos, removeTodo, state } = useTodos()
   
   function onCheckedChange(value: boolean) {
-    const index = todos.findIndex(i => i.id === todo.id)
+    const index = todos.findIndex((i: Todos) => i.id === todo.id)
     
     if (index > -1) {
       todos[index].completed = value
@@ -101,7 +106,7 @@ function TodoItem({ todo, index }: any) {
       toast({
         variant: value ? "success" : "destructive",
         description: value ? "Todo completed hurray 🥳." : "Todo reverted back to incomplete",
-        action: !value && <Button onClick={() => onCheckedChange(!value)} variant="destructive" className="whitespace-nowrap border border-white hover:border-0 hover:bg-red-600">Undo</Button>
+        action: (!value && <ToastAction onClick={() => onCheckedChange(!value)} className="whitespace-nowrap border border-white hover:border-0 hover:bg-red-600" altText="Undo">Undo</ToastAction>) as any
       })
     }
   }
