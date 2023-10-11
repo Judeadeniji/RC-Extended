@@ -2,6 +2,13 @@ import React, { ReactNode, useEffect } from "react";
 import { Signal, signal } from "../store/signals.js"
 import useReactive from "../hooks/reactive.js"
 
+/*
+  Note: Two Checks are performed before displaying the correct child.
+  First check is performed by Switch Component.
+  Second check is done by Match to display it own children if $when | when is true.
+  First Check is done so as to prevent a case where we have more than one true $when | when prop to avoid displaying multiple components.
+*/
+
 /**
  * Props for the Switch component.
  * @typedef {Object} SwitchProps
@@ -9,7 +16,8 @@ import useReactive from "../hooks/reactive.js"
  * @property {ReactNode | ReactNode[]} children - The child components representing conditions and content.
  */
  export type SwitchProps = {
-   fallback: ReactNode;
+   fallback?: ReactNode;
+   defaultName?: string;
    children: ReactNode | ReactNode[];
  }
 
@@ -18,37 +26,42 @@ import useReactive from "../hooks/reactive.js"
  * @param {SwitchProps} props - The props for the Switch component.
  * @returns {ReactNode | ReactNode[]} The content to render.
  */
-function Switch({ fallback, children }: SwitchProps): ReactNode | ReactNode[] {
+function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode | ReactNode[] {
   let matchedChild: ReactNode | null = null;
 
   React.Children.forEach(children, (child) => {
     if (!matchedChild && React.isValidElement(child) && child.type === Match) {
-      const { when, children } = child.props;
+      const { when, children, $when, name }: MatchProps = child.props;
       if (when) {
         matchedChild = children;
+      } else if ($when && $when.peek()) {
+        matchedChild = children;
+      } else if (defaultName && name && (typeof name === "string") && (typeof defaultName === "string") && (name === defaultName)) {
+        matchedChild = children
       }
     }
   });
 
-  return matchedChild || fallback;
+  return matchedChild || fallback || null;
 }
 
 /**
  * Props for the Match component.
  * @typedef {Object} MatchProps
- * @property {any} when - The condition to match for rendering the children.
- * @property {Signal<any>} $when - The condition to match for rendering the children.
+ * @property {boolean} when - The condition to match for rendering the children.
+ * @property {Signal<boolean>} $when - The condition to match for rendering the children.
  * @property {ReactNode | ReactNode[]} children - The content to render when the condition is true.
  */
  type MatchProps = {
-   when?: any;
-   $when?: Signal<any>;
+   when?: boolean;
+   $when?: Signal<boolean>;
+   name?: string;
    children: ReactNode | ReactNode[];
  }
  
 type ExclusiveMatchProps =
-  | ({ when: any; $when?: never })
-  | ({ when?: never; $when: Signal<any> });
+  | ({ when: boolean; $when?: never })
+  | ({ when?: never; $when: Signal<boolean> });
 
 
 /**
@@ -70,7 +83,7 @@ function Match({ when, $when, children }: MatchProps & ExclusiveMatchProps) {
     }
     
     if ($when) {
-      return $when.subscribe((newState: any) => {
+      return $when.subscribe((newState: boolean) => {
         whenV.value = newState
       })
     }

@@ -9,12 +9,12 @@ interface State {
 type SignalState<S> = {
   [key: string]: Signal<S>
 };
-type Actions = Record<string, (...args: any[]) => State>;
+type Actions = Record<string, (...args: any[]) => void>;
 type Computed = Record<string, (state: any) => any>;
-type Effects = Record<string, ((state: State) => () => void)>;
+type Effects = Record<string, (() => () => void)>;
 type ComputedSignals = Record<string, () => any>;
 type EffectSignals = Record<string, () => void>;
-type ActionSignals = Record<string, (...args: any[]) => typeof batch>;
+type ActionSignals = Record<string, (...args: any[]) => void>;
 type WrappedState<T> = Record<string, Signal<T>>;
 type CentralizedState = Record<string, any>
 type Unsubscribe = (() => void) | void
@@ -33,8 +33,9 @@ export const StoreMap = new Map<string, StoreType>();
 type StoreType = CentralizedState & Actions & ComputedSignals
 ;
 
+function noop(): any {}
 
-function centralizeState<S>(states: SignalState<S>): CentralizedState {
+function centralizeState<S>(states: SignalState<S>, subscriber: Function): CentralizedState {
   const merged: CentralizedState = {}
   for (const key in states) {
     const state = states[key]
@@ -43,6 +44,7 @@ function centralizeState<S>(states: SignalState<S>): CentralizedState {
         return state.value
       },
       set(value) {
+        subscriber(key, state.peek(), value)
         state.value = value
       }
     })
@@ -68,13 +70,24 @@ function wrapComputed<T>(computedObj: Computed, state: CentralizedState) {
   const wrappedComputed: ComputedSignals = {};
 
   for (const key in computedObj) {
-    if (state.hasOwnProperty(key)) {
-      const element = computed(() => computedObj[key].call(state[key], undefined));
+    if (key in state) {
+      const element = computed(() => computedObj[key].call(state[key], state[key]));
 
-      wrappedComputed[key] = () => element.value as T;
+     // wrappedComputed["$"+key] = () => element.value as T;
+      
+      Object.defineProperty(wrappedComputed, `$${key}`, {
+        get() {
+          return element.value as T
+        }
+      }) 
     } else {
-      const element = computed(() => computedObj[key].call(state, undefined))
-      wrappedComputed[key] = () => element.value
+      const element = computed(() => computedObj[key].call(state, state))
+      Object.defineProperty(wrappedComputed, key, {
+        get() {
+          return element.value as T
+        }
+      })
+      //wrappedComputed[key] = () => element.value
     }
   }
 
@@ -84,19 +97,11 @@ function wrapComputed<T>(computedObj: Computed, state: CentralizedState) {
 function wrapEffects(effs: Effects, store: Store): EffectSignals {
   const effects: EffectSignals = {};
 
-  function getDependent(key: string, state: any) {
-    const s = state[key]
-    if (!s && s == null || !s && s == undefined) {
-      return s;
-    }
-
-    return s || undefined;
-  }
-
   for (const key in effs) {
     if (effs.hasOwnProperty(key)) {
-      const shouldDepend = key in store.centralState || key in store.computed;
-      const disposeFn = effect(() => effs[key].call(store.centralState, shouldDepend ? getDependent(key, store.centralState) :  undefined));
+      const disposeFn = effect(() => {
+        return effs[key].call(store.state);
+      });
 
       effects[key] = disposeFn;
     }
@@ -105,22 +110,26 @@ function wrapEffects(effs: Effects, store: Store): EffectSignals {
   return effects;
 }
 
-function wrapActions(actions: Actions, store: Store): ActionSignals {
+function wrapActions(actions: Actions, state: typeof Store.prototype.state, subscriber: Function): ActionSignals {
   const acs: ActionSignals = {};
-  const cs: CentralizedState = store.centralState
 
   for (const action in actions) {
     if (actions.hasOwnProperty(action)) {
       const element = actions[action];
 
       acs[action] = (...args: any[]) => {
+        const { onErrorCb, afterCb } = subscriber != noop ? subscriber(action, args) : { onErrorCb: noop, afterCb: noop }
         return batch<any>(() => {
-          const newState = element.call(cs, ...args);
-          if (newState instanceof Promise) {
-            newState.then((r) => updateState(cs, r))
-            return cs;
+          try {
+            const newState: any | Promise<any> = element.call(state, state, ...args);
+            if (newState instanceof Promise) {
+              newState.then(afterCb).catch(onErrorCb).finally(noop);
+            } else {
+              afterCb(newState)
+            }
+          } catch (error: unknown) {
+            onErrorCb(error as Error)
           }
-          return updateState(cs, newState)
         });
       };
     }
@@ -129,59 +138,121 @@ function wrapActions(actions: Actions, store: Store): ActionSignals {
   return acs;
 }
 
-function updateState(oldState: CentralizedState, newState: State) {
+ interface ActionEventCallbackParam {
+   name: string;
+   args: Array<any>;
+   after: (cb: (result: any) => any) => void;
+   onError: (cb: () => any) => void;
+   storeInstance: Store;
+ }
 
-  for (const [key, value] of Object.entries(newState)) {
-    if (value != oldState[key]) {
-      oldState[key] = newState[key]
-    }
-  }
-  
-  return oldState;
-}
+ type ActionEventCallback = (params: ActionEventCallbackParam) => void;
+ 
+ interface StateEventCallbackParam<StateType> {
+   name: string;
+   current: StateType;
+   next: StateType;
+   storeInstance: Store;
+ }
 
- type Subscribe<Type> = keyof EffectSignals & keyof SignalState<Type>;
-
+ type StateEventCallback<StateType> = (params: StateEventCallbackParam<StateType>) => void;
+ 
 class Store {
-  public _state: State;
-  public state;
-  readonly defs: Definitions
-  readonly centralState: CentralizedState;
-  readonly actions: ActionSignals;
+  readonly _state: State;
+  readonly signalState: SignalState<any>;
+  private readonly defs: Definitions
   private readonly effects: EffectSignals;
+  readonly state: CentralizedState;
+  readonly actions: ActionSignals;
   readonly computed: ComputedSignals;
+  private onActionCb: ((key: string, args: any[]) => {
+    onErrorCb: (error: Error | unknown ) => void;
+    afterCb: (results: any) => void
+  });
+  private onStateCb: (name: string, current: any, next: any) => any;
 
   constructor(private readonly storeName: string, definitions: Definitions) {
+    this.onActionCb = noop;
+    this.onStateCb = noop;
     this.defs = definitions;
     this._state = this.defs.state();
-    this.state = wrapState(this._state);
-    this.centralState = centralizeState(this.state);
-    this.actions = wrapActions(this.defs.actions || {}, this);
-    this.computed = wrapComputed(this.defs.computed || {}, this.centralState);
+    this.signalState = wrapState(this._state);
+    this.state = centralizeState<any>(this.signalState, this.onStateCb);
+    this.actions = wrapActions(this.defs.actions || {}, this.state, this.onActionCb);
+    this.computed = wrapComputed(this.defs.computed || {}, this.state);
     this.effects = wrapEffects(this.defs.effects || {}, this);
   }
 
- 
   get name() {
     return this.storeName;
   }
-  
+
+  onAction(callback: ActionEventCallback) {
+    const instance = this;
+    instance.onActionCb = (key: string, args: any[]) => {
+      let onErrorCb: (error: Error | unknown ) => void = noop;
+      let afterCb: (results: any) => void = noop;
+      
+      function onError(callback: (error: Error | unknown ) => void) {
+        onErrorCb = callback
+      }
+      
+      function after(callback: (results: any) => void) {
+        afterCb = callback
+      }
+      
+      callback.call(instance, {
+        storeInstance: instance,
+        name: key,
+        onError,
+        after,
+        args,
+      })
+      
+      return {
+        onErrorCb,
+        afterCb
+      }
+    }
+    
+    return function unsubscribe() {
+      instance.onActionCb = noop
+    }
+    // To be continued...
+  }
+
+  onState<StateType = any>(callback: StateEventCallback<StateType>) {
+    const instance = this;
+    
+    instance.onStateCb = (name: string, current: StateType, next: StateType) => {
+      callback.call(instance, { name, current, next, storeInstance: instance })
+    }
+    
+    return function unsubscribe() {
+      instance.onStateCb = noop
+    }
+  }
+
   disposeEffects() {
-    for (const key in this.effects) {
+    for (const key in (this?.effects || {})) {
       this.disposeEffect(key);
     }
   }
 
   disposeEffect<Key extends keyof EffectSignals>(key: Key) {
-    this.effects[key]()
+    this.effects[key]?.()
   }
 
-  subscribe<Key extends string>(key: Key, listener: (newState: State[Key]) => void) {
-   const unsubscribe = this.state[key].subscribe(listener);
+  subscribe<Key extends string>(this: Store, key: Key, listener: (newState: State[Key]) => void) {
+   const store = this;
+   const unsubscribe = store.signalState[key].subscribe(function (newState) {
+     store._state[key] = newState;
+     listener(newState)
+   });
    
    return () => {
      unsubscribe?.();
-     this.disposeEffect(key)
+     store.disposeEffect(key)
    };
   }
 }
@@ -203,27 +274,28 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
     } & { [key: string]: any }
   
       const provider: Provider = {
-        ...target.actions,
-        ...target.computed,
+        onAction: target.onAction,
         subscribe: target.subscribe,
       };
-      
-      for(const key in target.state) {
-        provider[key] = target.centralState[key]
-      }
-
+     
       if (key in provider) {
         return provider[key];
-      } else if (key === "state" || key === "_state" || key === "defs" || key === "name" || key === "centralState" || key === "actions") {
-        return target[key as keyof Store]
+      } else if (key in target.state) {
+        return target.state[key]
+      } else if (key in target.computed) {
+        return target.computed[key]
+      } else if (key in target.actions) {
+        return target.actions[key]
+      } else if (key in target) {
+        return target[key]
       } else {
         target.disposeEffects()
         throw new Error(`Property '${key}' not found in store '${storeName}', This might be a bug in RC-Extended.`);
       }
     },
-    set() {
-      return false;
-    }
+    // set() {
+    //   return false;
+    // }
   }) as unknown;
 
   StoreMap.set(storeName, store as StoreType);
@@ -233,7 +305,8 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
 
 
 export function derived(store: Store, fn: (parentState: State) => State) {
-  const state = () => fn({ ...store.centralState })
+  const state = () => fn({ ...store.
+  state})
   const derivedStore = new Store(store.name, { state });
   
   let unsubscribers: (() => void)[] = [];
@@ -242,15 +315,15 @@ export function derived(store: Store, fn: (parentState: State) => State) {
     unsubscribers = Object.keys(derivedStore._state).map(key => {
       return store.subscribe(key, (newState) => {
         const newDerivedState = fn({
-          ...store.centralState,
+          ...store.state,
           [key]: newState
         });
         for (const key in newDerivedState) {
           if (Object.prototype.hasOwnProperty.call(newDerivedState, key)) {
             const element = newDerivedState[key];
             
-            if (key in derivedStore.centralState && (element != derivedStore.centralState[key])) {
-              derivedStore.centralState[key] = element;
+            if (key in derivedStore.state && (element != derivedStore.state[key])) {
+              derivedStore.state[key] = element;
             }
           }
         }
@@ -264,7 +337,7 @@ export function derived(store: Store, fn: (parentState: State) => State) {
   
   return  {
     get value() {
-      return derivedStore.centralState
+      return derivedStore.state
     },
     subscribe
   }
@@ -273,7 +346,7 @@ export function derived(store: Store, fn: (parentState: State) => State) {
 export function readonly(store: Store) {
   return {
     get value() {
-      const cs: CentralizedState = store.centralState;
+      const cs: CentralizedState = store.state;
       type Cs = typeof cs
       return new Proxy(cs, {
         get<Key extends keyof Cs>(target: Cs, key: Key): Cs[Key] {
@@ -309,18 +382,21 @@ export function useStore(storeName: string) {
   const [, setState] = useState<{}>({});
 
   useEffect(() => {
-    // this implementation is slow as f**
-    const unsubs = Object.entries(store.state).map(([, sig]: [key: string, value: any]) => {
-      return sig.subscribe(() => setState({}))
-    })
-    
-    return () => {
-      unsubs.forEach(s => s());
-      //dispose all effects
-      store.disposeEffects();
+    let unsubscribers: (() => void)[] = [];
+  
+    function subscribe() {
+      unsubscribers = Object.keys(store?._state).map(key => {
+        return store?.subscribe(key, () => setState({}))
+      })
+      
+      return function unsubscribe() {
+        unsubscribers.forEach(fn => fn())
+      }
     }
-  }, []);
-
+    
+    return subscribe()
+  }, [])
+ 
   return store;
 }
 
@@ -378,13 +454,9 @@ export function useSignalAction<T>(sig: Signal<T>) {
   return useSignal(sig)[1];
 }
 
-export function $computed<T>(signal: Signal<T>,callback: (value: T) => T) {
-  return useMemo(() => computed(() => {
-    return callback(signal.value)
-  }).value, [callback])
+export function $computed<T>(callback: () => T) {
+  return useMemo(() => computed(callback).value, [callback])
 }
-
-
 
 export function $watch<T>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
   useEffect(() => {
@@ -482,18 +554,20 @@ export function getActions() {
     const [, setState] = useState<{}>({});
   
     useEffect(() => {
-      
-      // this implementation is slow as f**
-      const unsubs = Object.entries(store.state).map(([, sig]: [key:string, sig: any]) => {
-        return sig.subscribe(() => {
-          setState({})
-        })
-      })
-      return () => {
-        unsubs.forEach(s => s())
-      }
-    }, []);
+      let unsubscribers: (() => void)[] = [];
     
+      function subscribe() {
+        unsubscribers = Object.keys(store._state).map(key => {
+          return store.subscribe(key, () => setState({}))
+        })
+        
+        return function unsubscribe() {
+          unsubscribers.forEach(fn => fn())
+        }
+      }
+      
+      return subscribe()
+    }, [])
   
   return actions;
 }
@@ -501,7 +575,7 @@ export function getActions() {
 export function getState() {
   const store = getStoreContext("getState()");
   
-  const state = store.centralState;
+  const state = store.state;
   
   return state;
 }
@@ -509,12 +583,10 @@ export function getState() {
 export function getSingleState(stateName: string) {
   const store = getStoreContext(`getSingleState(${stateName})`);
   
-  const state = store.centralState[stateName];
+  const state = store.state[stateName];
   
   return state;
 }
-
-export function noop() {}
 
 export function getStore(storeNameOrStore: string | StoreType): StoreType {
   let store: StoreType;
@@ -538,5 +610,5 @@ export function getStore(storeNameOrStore: string | StoreType): StoreType {
 
 export {
   Store,
-  Definitions
+  Definitions,
 }
