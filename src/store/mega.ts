@@ -28,7 +28,7 @@ interface Definitions {
 
 type MapKeysUnion<T extends Record<string, any>> = T extends Map<infer K, any> ? K : never;
 
-export const StoreMap = new Map<string, StoreType | Store | unknown>();
+export const StoreMap = new Map();
 
 type StoreMapKeys = MapKeysUnion<typeof StoreMap>
 
