@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from "react";
+import React, { ReactNode, ReactElement, useEffect } from "react";
 import { Signal, signal } from "../store/signals.js"
 import useReactive from "../hooks/reactive.js"
 
@@ -13,20 +13,20 @@ import useReactive from "../hooks/reactive.js"
  * Props for the Switch component.
  * @typedef {Object} SwitchProps
  * @property {ReactNode} fallback - The fallback content to render when no condition matches.
- * @property {ReactNode | ReactNode[]} children - The child components representing conditions and content.
+ * @property {ReactNode} children - The child components representing conditions and content.
  */
  export type SwitchProps = {
    fallback?: ReactNode;
    defaultName?: string;
-   children: ReactNode | ReactNode[];
+   children: ReactElement<MatchProps>[];
  }
 
 /**
  * The Switch component conditionally renders its children based on the first matching condition.
  * @param {SwitchProps} props - The props for the Switch component.
- * @returns {ReactNode | ReactNode[]} The content to render.
+ * @returns {ReactNode} The content to render.
  */
-function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode | ReactNode[] {
+function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode {
   let matchedChild: ReactNode | null = null;
 
   React.Children.forEach(children, (child) => {
@@ -50,13 +50,13 @@ function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode | R
  * @typedef {Object} MatchProps
  * @property {boolean} when - The condition to match for rendering the children.
  * @property {Signal<boolean>} $when - The condition to match for rendering the children.
- * @property {ReactNode | ReactNode[]} children - The content to render when the condition is true.
+ * @property {ReactNode} children - The content to render when the condition is true.
  */
  type MatchProps = {
    when?: boolean;
    $when?: Signal<boolean>;
    name?: string;
-   children: ReactNode | ReactNode[];
+   children: ReactNode;
  }
  
 type ExclusiveMatchProps =

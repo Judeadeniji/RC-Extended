@@ -26,9 +26,11 @@ interface Definitions {
   effects?: Effects;
 }
 
+type MapKeysUnion<T extends Record<string, any>> = T extends Map<infer K, any> ? K : never;
 
-export const StoreMap = new Map<string, StoreType>();
+export const StoreMap = new Map<string, StoreType | Store | unknown>();
 
+type StoreMapKeys = MapKeysUnion<typeof StoreMap>
 
 type StoreType = CentralizedState & Actions & ComputedSignals
 ;
