@@ -176,7 +176,7 @@ export function TodoApp() {
   const length = $computed(() => input.value.length)
   const all = $computed(() => todos.value.length)
   
-  function handleInputChange(e) {
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const text = e.target.value
     
     if (length > 99 && (length < text.length)) return;
@@ -184,13 +184,13 @@ export function TodoApp() {
     input.value = text
   }
 
-  function addTodo(e) {
+  function addTodo(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const task = input.peek();
     input.value = ""
     if (task.trim() === "") return;
     const id = crypto.randomUUID()
-    //@ts-ignore
+    
     todoAction((todos) => [{ id, task, completed: false }, ...todos])
     toast({
       variant: "success",

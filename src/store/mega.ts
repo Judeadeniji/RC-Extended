@@ -15,9 +15,7 @@ type Effects = Record<string, (() => () => void)>;
 type ComputedSignals = Record<string, () => any>;
 type EffectSignals = Record<string, () => void>;
 type ActionSignals = Record<string, (...args: any[]) => void>;
-type WrappedState<T> = Record<string, Signal<T>>;
 type CentralizedState = Record<string, any>
-type Unsubscribe = (() => void) | void
 
 interface Definitions {
   state: () => State;
@@ -30,7 +28,6 @@ type MapKeysUnion<T extends Record<string, any>> = T extends Map<infer K, any> ?
 
 export const StoreMap = new Map();
 
-type StoreMapKeys = MapKeysUnion<typeof StoreMap>
 
 type StoreType = CentralizedState & Actions & ComputedSignals
 ;
@@ -304,7 +301,6 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
 
   return () => useStore(storeName);
 }
-
 
 export function derived(store: Store, fn: (parentState: State) => State) {
   const state = () => fn({ ...store.

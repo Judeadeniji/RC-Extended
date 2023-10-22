@@ -1,4 +1,4 @@
-import React, { ReactNode, ReactElement, useEffect } from "react";
+import React, { ReactNode, ReactElement, useEffect, Fragment } from "react";
 import { Signal, signal } from "../store/signals.js"
 import useReactive from "../hooks/reactive.js"
 
@@ -24,9 +24,9 @@ import useReactive from "../hooks/reactive.js"
 /**
  * The Switch component conditionally renders its children based on the first matching condition.
  * @param {SwitchProps} props - The props for the Switch component.
- * @returns {ReactNode} The content to render.
+ * @returns {React.JSX.Element} The content to render.
  */
-function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode {
+function Switch({ fallback, defaultName, children }: SwitchProps): React.JSX.Element{
   let matchedChild: ReactNode | null = null;
 
   React.Children.forEach(children, (child) => {
@@ -42,7 +42,7 @@ function Switch({ fallback, defaultName, children }: SwitchProps): ReactNode {
     }
   });
 
-  return matchedChild || fallback || null;
+  return <Fragment>{ matchedChild || fallback || null }</Fragment>;
 }
 
 /**
@@ -67,9 +67,9 @@ type ExclusiveMatchProps =
 /**
  * This component renders its children when the specified condition is true.
  * @param {MatchProps} props - The props for the Match component.
- * @returns {ReactNode | null} The content to render or null if the condition is false.
+ * @returns {React.JSX.Element} The content to render or null if the condition is false.
  */
-function Match({ when, $when, children }: MatchProps & ExclusiveMatchProps) {
+function Match({ when, $when, children }: MatchProps & ExclusiveMatchProps): React.JSX.Element {
   
   const whenV = useReactive($when?.value)
   
@@ -90,11 +90,18 @@ function Match({ when, $when, children }: MatchProps & ExclusiveMatchProps) {
   }, [])
   
   if ($when) {
-    return whenV.value ? children : null;
+    return (
+      <Fragment>
+        {whenV.value ? children : null};
+      </Fragment>
+    )
   }
   
-  return when ? children : null;
-}
+  return (
+    <Fragment>
+      {when ? children : null};
+    </Fragment>
+  )}
 
 export {
   Switch,

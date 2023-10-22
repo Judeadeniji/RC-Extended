@@ -2,7 +2,7 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
  import { defineStore, signal } from "rc-extended/store"
 import { toast } from "@/components/ui/use-toast"
-import { ToastAction } from "@/components/ui/toast"
+import { ToastAction, ToastActionElement } from "@/components/ui/toast"
  import React from "react"
  
 export function cn(...inputs: ClassValue[]) {
@@ -76,7 +76,7 @@ export const useTodos = defineStore("todos", {
               this.todos = prev
             },
             altText: "Undo"
-          }, "Undo") as any
+          }, "Undo") as unknown as ToastActionElement
         })
       }
     },

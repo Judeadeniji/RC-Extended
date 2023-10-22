@@ -171,26 +171,26 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     }
   }
 
-  render() {
+  render(): React.JSX.Element {
     const { each, $each, children } = this.props;
 
     if ($each && typeof children === "function") {
-      return this.renderWithSignal(children, true);
+      return <>{this.renderWithSignal(children, true)}</>;
     }
 
     if ($each) {
-      return this.renderWithSignal(children, false);
+      return <>{this.renderWithSignal(children, false)}</>;
     }
 
     if (each && typeof children === "function") {
-      return this.renderUsingFunction(each, children);
+      return <>{this.renderUsingFunction(each, children)}</>;
     }
 
     if (Array.isArray(children) || !React.isValidElement(children)) {
       throw new Error("Only provide one valid child element or function to <For> component");
     }
 
-    return this.renderUsingChildComponent(each, children);
+    return <>{this.renderUsingChildComponent(each, children)}</>;
   }
 
   private renderWithSignal(children: any, isFn: boolean) {
@@ -475,7 +475,7 @@ class For<T> extends Component<ExclusiveForProps<T>> {
       );
       index++;
     }
-    return renderedChildren;
+    return <>{renderedChildren}</>;
   }
 
   private renderObjectUsingChildComponent(each: { [key: string]: T }, childComponent: React.ReactElement<any, any>) {

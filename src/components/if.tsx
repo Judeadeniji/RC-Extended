@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Signal } from "../store"
+import React from "react";
 
 interface IfProps<> {
   when?: unknown; // deliberately didn't use boolean
@@ -29,9 +30,9 @@ interface IfProps<> {
  * @param {unknown} props.condition - The condition to evaluate for rendering.
  * @param {ReactNode} [props.fallback=null] - The fallback content to render when the condition is not met.
  * @param {(ReactNode|function(fallback: ReactNode): ReactNode)} props.children - The content to render when the condition is met.
- * @returns {ReactNode|null} The rendered content based on the condition.
+ * @returns {React.JSX.Element} The rendered content based on the condition.
  */
-export function Show({ when, $when, fallback = null, children }: IfProps): ReactNode | null {
+export function Show({ when, $when, fallback = null, children }: IfProps): React.JSX.Element {
 
   if($when && !($when instanceof Signal)) {
     throw new TypeError("$when prop must receive a signal as value")
@@ -47,16 +48,16 @@ export function Show({ when, $when, fallback = null, children }: IfProps): React
   
   if (Boolean(when)) {
     if (typeof children === 'function') {
-      return children();
+      return <>{children()}</>;
     }
-    return children;
+    return <>{children}</>;
   } else if (Boolean(whenV)) {
     if (typeof children === 'function') {
-      return children();
+      return <>{children()}</>;
     }
-    return children;
+    return <>{children}</>;
   } else {
-    return fallback;
+    return <>{fallback}</>;
   }
 }
 
