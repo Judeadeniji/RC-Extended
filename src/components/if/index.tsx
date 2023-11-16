@@ -1,10 +1,11 @@
-import { ReactNode, useState, useEffect } from "react";
-import { Signal } from "../store"
-import React from "react";
+import React, { ReactNode, useState, useEffect } from "react";
+import { Signal } from "../../store"
 
-interface IfProps<> {
-  when?: unknown; // deliberately didn't use boolean
-  $when?: Signal<unknown>;
+
+
+interface IfProps<T extends any> {
+  when?: T; // deliberately didn't use boolean
+  $when?: Signal<T>;
   fallback?: null | undefined | ReactNode;
   children: ReactNode | (() => ReactNode);
 }
@@ -32,7 +33,7 @@ interface IfProps<> {
  * @param {(ReactNode|function(fallback: ReactNode): ReactNode)} props.children - The content to render when the condition is met.
  * @returns {React.JSX.Element} The rendered content based on the condition.
  */
-export function Show({ when, $when, fallback = null, children }: IfProps): React.JSX.Element {
+export function Show<T extends any>({ when, $when, fallback = null, children }: IfProps<T>): React.JSX.Element {
 
   if($when && !($when instanceof Signal)) {
     throw new TypeError("$when prop must receive a signal as value")
@@ -62,5 +63,5 @@ export function Show({ when, $when, fallback = null, children }: IfProps): React
 }
 
 export {
-  Show as If
+  Show as If // alias
 }

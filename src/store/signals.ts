@@ -417,7 +417,7 @@ function prepareSources(target: Computed | Effect) {
 
 function cleanupSources(target: Computed | Effect) {
 	let node = target._sources;
-	let head = undefined;
+	let head: Node | undefined = undefined;
 
 	/**
 	 * At this point 'target._sources' points to the tail of the doubly-linked list.
@@ -767,4 +767,4 @@ function effect(compute: () => unknown | EffectCleanup): () => void {
 	return effect._dispose.bind(effect);
 }
 
-export { signal, computed, effect, batch, Signal, Effect, type ReadonlySignal };
+export { signal, computed, effect, batch, Signal, type Effect, type Computed, type Node, type ReadonlySignal };

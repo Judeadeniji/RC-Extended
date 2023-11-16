@@ -35,6 +35,7 @@ export function sleep(time: number): Promise<void> {
  */
 function onTimeout(cb: CallbackFunction, timeout: number | undefined): () => void {
   const id = setTimeout(cb, timeout || 10);
+  alert(id)
 
   return () => clearTimeout(id);
 }
@@ -44,10 +45,34 @@ function onTimeout(cb: CallbackFunction, timeout: number | undefined): () => voi
  * @param {CallbackFunction} cb - The callback function to execute.
  * @param {number} timeout - The time (in milliseconds) to wait before executing the callback.
  */
-export function useTimeout(cb: CallbackFunction, timeout: number): void {
+export function useTimeout(cb: CallbackFunction, timeout: number) {
+  const clearTimeout = onTimeout(cb, timeout);
   useEffect(() => {
-    return onTimeout(cb, timeout);
+    return clearTimeout
   }, [cb, timeout]);
+  
+  return clearTimeout
+}
+
+export function useTimeoutFn(cb: CallbackFunction, timeout: number) {
+ let clearTimeout: any;
+ 
+ function start() {
+   clearTimeout = onTimeout(cb, timeout);
+ }
+ 
+ function stop() {
+   clearTimeout?.()
+ }
+ 
+ useEffect(() => {
+   return stop;
+ }, [cb, timeout])
+ 
+ return {
+   start,
+   stop
+ }
 }
 
 /**

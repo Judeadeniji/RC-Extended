@@ -1,7 +1,7 @@
 import { PlusSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { $signal, signal, useSignal, useSignalValue, useSignalAction, $computed } from "rc-extended/store"
-import { Switch, Match, Show, For } from "rc-extended"
+import { Switch, Match, Show, For, ForChildComponentProps, Await } from "rc-extended/components"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,9 @@ import { Switch as Toggle } from "@/components/ui/switch"
 import { $view } from "@/lib/utils"
 import { ToastAction, ToastActionElement } from "@/components/ui/toast"
 import { toast } from "@/components/ui/use-toast"
+import { useClipboard, usePromiseData } from "rc-extended/use"
+import { AwaitContextType } from "../../../dist/src/context"
+
 
 interface Todos {
   id: string | number | symbol;
@@ -76,8 +79,16 @@ function TodoItems() {
       uncompleted,
       total
     }
-  })
+  }).value
   
+  function fetchTodos(): Promise<string> {
+     return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve("Data Fetching Complete")
+      0}, 5000)
+     })
+  }
+
   return (
     <Card className="shadow-none">
       <CardHeader>
@@ -100,17 +111,19 @@ function TodoItems() {
       </CardHeader>
       
       <CardContent className="flex flex-col space-y-1 items-center">
-        <Show when={value === "all"}>
-        {/* I don't need a useSignal for `todos` because the For component maintains an internal state when a signal is passed into it*/}
-          <For $each={todos}> 
-            <TodoItem item="todo" />
-          </For>
-        </Show>
-        <Show when={value === "completed"}>
-          <For each={completed}> 
-            <TodoItem item="todo" />
-          </For>
-        </Show>
+        <Await promiseFn={fetchTodos}>
+          <Show when={value === "all"}>
+          {/* I don't need a useSignal for `todos` because the For component maintains an internal state when a signal is passed into it*/}
+            <For $each={todos}> 
+              <TodoItem item={"todo" as unknown as Todos} />
+            </For>
+          </Show>
+          <Show when={value === "completed"}>
+            <For each={completed}> 
+              <TodoItem item={"todo" as unknown as Todos} />
+            </For>
+          </Show>
+        </Await>
       </CardContent>
       <CardFooter className="text-gray-400 dark:text-zinc-400 text-sm my-1 p-1 text-center w-full flex items-center justify-center">
         Double click to remove todo.
@@ -121,11 +134,13 @@ function TodoItems() {
 
 
 // using rc-extended's runtime magic, typescript will yell at us that's why are using type `any`
-function TodoItem({ todo }: any) {
+
+function TodoItem({ todo }: { todo?: Todos } & Omit<ForChildComponentProps<Todos>, "index">) {
   const [_todos, setTodos] = useSignal(todos)
+  const res: AwaitContextType<"string"> = usePromiseData()
   
   function onCheckedChange(value: boolean) {
-    const index = _todos.findIndex(i => i.id === todo.id)
+    const index = _todos.findIndex(i => i.id === todo?.id)
     
     if (index !== -1) {
       setTodos((todos = []) => {
@@ -156,15 +171,24 @@ function TodoItem({ todo }: any) {
         })
       }
   }
+
+  if (res.isPending) {
+    return (
+      <div key={todo?.id as React.Key} className="border dark:border-zinc-800 p-1 rounded-md flex flex-row justify-between items-center space-x-1 min-w-full animate-in slide-in-from-left duration-300">
+        <p className="font-medium dark:text-zinc-200 text-gray-600 text-sm leading-tight p-1 h-8">Loading...</p>
+      </div>
+    )
+  }
+
   
   return (
     <div onClick={(event) => {
       if (event.detail === 2) {
-        removeTodo(todo.id)
+        removeTodo(todo?.id as string)
       }
-    }} key={todo.id} className="border dark:border-zinc-800 p-1 rounded-md flex flex-row justify-between items-center space-x-1 min-w-full animate-in slide-in-from-left duration-300">
-      <p className="font-medium dark:text-zinc-200 text-gray-600 text-sm leading-tight p-1">{todo.task}</p>
-      <Toggle onCheckedChange={onCheckedChange} checked={todo.completed} />
+    }} key={todo?.id as React.Key} className="border dark:border-zinc-800 p-1 rounded-md flex flex-row justify-between items-center space-x-1 min-w-full animate-in slide-in-from-left duration-300">
+      <p className="font-medium dark:text-zinc-200 text-gray-600 text-sm leading-tight p-1">{todo?.task}</p>
+      <Toggle onCheckedChange={onCheckedChange} checked={todo?.completed} />
     </div>
   )
 }
@@ -173,8 +197,17 @@ export function TodoApp() {
   const input = $signal<string>("")
   const [_todos, todoAction] = useSignal(todos)
   const setView = useSignalAction($view)
-  const length = $computed(() => input.value.length)
-  const all = $computed(() => todos.value.length)
+  const length = $computed(() => input.value.length).value
+  const all = $computed(() => todos.value.length).value
+
+  const { copy } = useClipboard({
+    onSuccess: () => {
+      toast({
+        variant: "success",
+        description: "Copied successfully. 🎉",
+      })
+    }
+  })
   
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const text = e.target.value
@@ -221,6 +254,7 @@ export function TodoApp() {
         </CardHeader>
           <CardContent>
             <form onSubmit={addTodo}>
+              <Button onClick={() => copy(input.peek().trim())} className="absolute right-2 top-2" variant="outline" size="sm">Copy</Button>
               <div className="m-0">
                 <Input type="text" placeholder="I have to..." className="focus-visible:ring-offset-0 text-md" value={input.peek()} onChange={handleInputChange} />
                 <p className={cn("tracking-tight text-sm text-zinc-400 ml-1 mt-1", length > 100 ? "text-red-500 font-medium" : "")}>{length}/100</p>

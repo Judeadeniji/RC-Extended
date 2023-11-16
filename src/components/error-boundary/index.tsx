@@ -1,6 +1,6 @@
 import React, { Component, createContext, useContext } from "react";
-import { Switch, Match } from "./switch-match.js";
-import { Show } from "./if.js"
+import { Switch, Match } from "../switch-match";
+import { Show } from "../if"
 
 /**
  * Props for the ErrorBoundary component.
@@ -27,9 +27,9 @@ const ErrorContext = createContext<ErrorBoundaryState>({ hasError: false, error:
 /**
  * A React component that acts as an error boundary, catching errors in its child components.
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-  public props: ErrorBoundaryProps;
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  declare public state: ErrorBoundaryState;
+  declare public props: ErrorBoundaryProps;
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <ErrorContext.Provider value={this.state}>
         <Switch fallback={this.props.fallback && this.props.fallback(this.state.error)}>
           <Match when={this.state.hasError}>
-            <Show when={this.props.fallback}>
+            <Show when={Boolean(this.props.fallback)}>
               {this.props.fallback && this.props.fallback(this.state.error)}
             </Show>
             <Show when={!this.props.fallback}>
@@ -89,3 +89,9 @@ export const useBoundaryError = () => {
   }
   return error;
 };
+
+const boundary = ErrorBoundary as unknown as (props: ErrorBoundaryProps) => React.JSX.Element
+
+export {
+  boundary as ErrorBoundary
+}

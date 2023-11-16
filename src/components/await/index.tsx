@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, ReactNode } from "react";
-import useReactive from "../hooks/reactive.js";
-import AwaitContext from "../context.js";
-import type { AwaitContextType } from "../context.js";
+import useReactive from "../../hooks/reactive.js";
+import AwaitContext from "../../context.js";
+import type { AwaitContextType } from "../../context.js";
 
 /**
  * Props for the Await component.
- * @typedef {Object} AwaitProps
- * @property {() => Promise<any>} promise - A promise to be awaited.
+ * @template T
+ * @typedef {{  promiseFn: (contoller: AbortController) => Promise<T>; children: ReactNode;}} AwaitProps<T>
+ * @property {() => Promise<T>} promise - A promise to be awaited.
  * @property {ReactNode} children - The content to be rendered while awaiting the promise.
  */
 
@@ -17,7 +18,8 @@ interface AwaitProps<T> {
 
 /**
  * An async component that awaits a promise and provides its state to child components.
- * @param {AwaitProps} props - The props for the Await component.
+ * @template T
+ * @param {AwaitProps<T>} props - The props for the Await component.
  * @returns {JSX.Element} The JSX for the Await component.
  */
 export function Await<T>({ promiseFn, children }: AwaitProps<T>): JSX.Element {
@@ -25,8 +27,8 @@ export function Await<T>({ promiseFn, children }: AwaitProps<T>): JSX.Element {
    * The state of the promise.
    * @type {{ value: AwaitContextType }}
    */
-  const promiseState: { value: AwaitContextType } =
-    useReactive<AwaitContextType>({
+  const promiseState: { value: AwaitContextType<T> } =
+    useReactive<AwaitContextType<T>>({
       isPending: true,
       isFulfilled: false,
       isRejected: false,

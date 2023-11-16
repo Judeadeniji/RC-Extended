@@ -27,7 +27,10 @@
     "paths": {
       "@/*": ["./src/*"],
       "rc-extended": ["./node_modules/rc-extended/dist"],
+      "rc-extended/components": ["./node_modules/rc-extended/dist/src/components"],
       "rc-extended/store": ["./node_modules/rc-extended/dist/src/store"],
+      "rc-extended/functions": ["./node_modules/rc-extended/dist/src/functions"],
+      "rc-extended/use": ["./node_modules/rc-extended/dist/src/hooks"],
     }
   },
   "include": ["src"],

@@ -9,7 +9,7 @@ import React, { Component, ReactNode } from "react";
  * @typedef {import("../store").Signal} Signal
  * @template T
  */
-import { Signal } from "../store";
+import { Signal } from "../../store";
 
 /**
  * Props for the `For` component.
@@ -56,7 +56,7 @@ type Each<T> =
  */
 type ExclusiveEachProps<T> =
   | { each: T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }; $each?: never }
-  | { $each: Signal<T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }>; each?: never };
+  | { $each: Signal< T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T }>; each?: never };
 
 
 /**
@@ -72,15 +72,32 @@ type ExclusiveForProps<T> = ForProps<T> & ExclusiveEachProps<T>;
  * @typedef {Object} ForChildComponentProps
  * @property {{ item: T[number]; index: number } | { item: T; index: string }} item - The item and its index in the iterable.
  */
-type ForChildComponentProps<T> = {
-  item: T extends T[]
+type ForChildComponentProps<T> = T extends T[]
     ? { item: T[number]; index: number }
     : T extends Map<any, T>
     ? { item: T; index: string }
     : T extends Set<T>
     ? { item: T; index: number }
     : { item: T; index: string };
-};
+
+    
+// type PropType = typeof base
+
+// const base = {
+//   item: "shoe",
+//   index: "ssn",
+// } as const
+
+// type ValueOf<T> = T[keyof T]
+
+// type Constructed<T, V> = {
+//   [K in ValueOf<PropType>]: K extends PropType["item"] ? T : K extends PropType["index"] ? V : any
+// }
+
+// const outprops: Constructed<string, number> = {
+//  shoe: "hi",
+//  ssn: 4567,
+// }
 
 /**
  * The `For` component for rendering items from an iterable.
@@ -102,7 +119,7 @@ type ForChildComponentProps<T> = {
  */
 class For<T> extends Component<ExclusiveForProps<T>> {
   private unsubscribe: () => void;
-  state: {
+  declare state: {
     [key: string]: any
   }
   /**
@@ -173,7 +190,7 @@ class For<T> extends Component<ExclusiveForProps<T>> {
 
   render(): React.JSX.Element {
     const { each, $each, children } = this.props;
-
+    
     if ($each && typeof children === "function") {
       return <>{this.renderWithSignal(children, true)}</>;
     }
@@ -502,8 +519,10 @@ class For<T> extends Component<ExclusiveForProps<T>> {
 
 }
 
+const ForComponent = For as unknown as <T>(props: ExclusiveForProps<T>) => React.JSX.Element
+
 // Export the For component and ForChildComponentProps type
-export { For, ForChildComponentProps };
+export { ForComponent as For, ForChildComponentProps };
 
 /**
  * Helper function to detect custom iterable objects.
@@ -532,4 +551,5 @@ function isObject(obj: any): boolean {
 function isGenerator<T>(value: any): value is Generator<T, void, unknown> {
   return typeof value === 'function' && value.constructor?.name === 'GeneratorFunction';
 }
+
 

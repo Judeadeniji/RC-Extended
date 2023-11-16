@@ -1,5 +1,5 @@
 import { cn, useTodos } from "@/lib/utils"
-import { Switch, Match, Show, For } from "rc-extended"
+import { Switch, Match, Show, For } from "rc-extended/components"
 import { useSignalAction } from "rc-extended/store"
 import { PlusSquare } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"

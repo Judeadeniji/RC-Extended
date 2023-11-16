@@ -1,4 +1,5 @@
 import { Signal, batch, signal, effect, computed } from "./signals.js"
+import { noop } from '../utils'
 import { ReactElement, createElement, useState , useEffect, useRef, useMemo, createContext, useContext, Context } from "react";
 import useReactive from "../hooks/reactive.js"
 
@@ -31,8 +32,6 @@ export const StoreMap = new Map();
 
 type StoreType = CentralizedState & Actions & ComputedSignals
 ;
-
-function noop(): any {}
 
 function centralizeState<S>(states: SignalState<S>, subscriber: Function): CentralizedState {
   const merged: CentralizedState = {}
@@ -262,7 +261,7 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
   }
   
   if (StoreMap.has(storeName)) {
-    throw new Error(`Store with name "${storeName}" already exists. Use 'useStore("${storeName}")' to access it.`);
+    return () => useStore(storeName);
   }
 
   const store = new Proxy(new Store(storeName, definitions), {
@@ -295,7 +294,8 @@ export function defineStore(storeName: string, definitions: Definitions): () => 
     // set() {
     //   return false;
     // }
-  }) as unknown;
+  }) as unknown as StoreType
+  ;
 
   StoreMap.set(storeName, store as StoreType);
 
@@ -395,7 +395,7 @@ export function useStore(storeName: string) {
     return subscribe()
   }, [])
  
-  return store;
+  return store as StoreType;
 }
 
 
@@ -410,10 +410,10 @@ export function useStoreComputed(storeNameOrStore: string | StoreType) {
 }
 
 
-export function useSignal<T>(sig: Signal<T>): [T, (newState: ((prev: T) => T) | T) => void] {
+export function useSignal<T>(sig: Signal<T | undefined> = signal<T | undefined >(undefined)): [T, (newState: ((prev: T) => T) | T) => void] {
   // Check if a Signal instance is provided
   if (!(sig instanceof Signal)) {
-    throw new Error("To use 'useSignal', you must provide a Signal as a value.");
+    //throw new Error("To use 'useSignal', you must provide a Signal as a value.");
   }
   
   // Store the signal in a ref;
@@ -453,19 +453,63 @@ export function useSignalAction<T>(sig: Signal<T>) {
 }
 
 export function $computed<T>(callback: () => T) {
-  return useMemo(() => computed(callback).value, [callback])
+  return useMemo(() => computed(callback), [callback])
 }
 
-export function $watch<T>(sig: Signal<T>, callback: (newValue: T) => void | (() => void), shouldNotUnmount: boolean = false) {
+export function $watch<T>(sig: Signal<T>, callback: (newValue: T, oldValue: undefined | T) => void | (() => void), shouldNotUnmount: boolean = false) {
+  const previous = useRef<T | undefined>()
+  let unsubscribe = noop;
   useEffect(() => {
     // Subscribe to the Signal and store the unsubscribe function
-    const unsubscribe = sig.subscribe(callback);
+    unsubscribe = sig?.subscribe(current => {
+     const unsub = callback(current, previous.current);
+     previous.current = current;
+     return unsub
+    });
     
     // If shouldNotUnmount is false, return the unsubscribe function to clean up on unmount
     if (!shouldNotUnmount) {
       return unsubscribe;
     }
   }, [sig.value]); // Re-run the effect when the Signal's value changes
+  
+  return unsubscribe;
+}
+
+export function watch<T>(sig: Signal<T>, callback: (newValue: T, oldValue: undefined | T) => void | (() => void)) {
+  let previous: T | undefined;
+  let unsubscribe = noop;
+    // Subscribe to the Signal and store the unsubscribe function
+    unsubscribe = sig.subscribe && sig.subscribe(current => {
+     const unsub = callback(current, previous);
+     previous = current;
+     return unsub
+    });
+  
+  return unsubscribe;
+}
+
+export function pausableWatch<T>(target: Signal<T>, fn: (newValue: T, oldValue: T) => void | (() => void)) {
+ let unsubscribe = watch(target, fn);
+
+ function pause() {
+    unsubscribe()
+
+    return resume
+  }
+
+  function resume() {
+    unsubscribe = watch(target, fn)
+
+    return pause
+  }
+  
+  return {
+    pause,
+    resume,
+    start: resume, // alias
+    stop: pause, // alias
+  }
 }
 
 export function $effect(cb: () => (undefined | (() => void))): void {
@@ -603,6 +647,34 @@ export function getStore(storeNameOrStore: string | StoreType): StoreType {
     throw new Error(`Store not found. Make sure to define it using 'defineStore("${storeNameOrStore}", definitions)'.`);
   }
   return store;
+}
+
+export function deepSignal<Type>(object: Record<any, Type>) {
+  function toSignal(object: Record<any, Type>) {
+    let signalObject = {}
+    for (const key in object) {
+      const item = object[key]
+      if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+        signalObject[key] = toSignal(item as Record<any, any>)
+        continue;
+      }
+      
+      const sigObj = signal(object[key])
+      
+      Object.defineProperty(signalObject, key, {
+        get() {
+          return sigObj.value
+        },
+        set(newValue) {
+          sigObj.value = newValue
+        }
+      })
+    }
+    
+    return signalObject;
+  }
+  
+  return toSignal(object)
 }
 
 

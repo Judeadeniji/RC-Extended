@@ -1,5 +1,5 @@
 import './App.css'
-import { ErrorBoundary, Switch, Match } from "rc-extended"
+import { ErrorBoundary, Switch, Match } from "rc-extended/components"
 import { useSignalValue } from "rc-extended/store"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Header } from "@/components/header"
@@ -27,7 +27,7 @@ function App() {
           <Toaster />
         </main>
       </ThemeProvider>
-    </ErrorBoundary>
+     </ErrorBoundary>
   )
 }
 

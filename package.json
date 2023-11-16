@@ -1,6 +1,6 @@
 {
   "name": "rc-extended",
-  "version": "0.0.1232",
+  "version": "0.0.1233",
   "description": "Cybernetically enhanced React components",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,10 +16,20 @@
       "import": "dist/src/store/index.js",
       "require": "dist/src/store/index.js"
     },
+    "./components": {
+      "types": "dist/src/components/index.d.ts",
+      "import": "dist/src/components/index.js",
+      "require": "dist/src/components/index.js"
+    },
     "./functions": {
       "types": "dist/src/functions/index.d.ts",
       "import": "dist/src/functions/index.js",
       "require": "dist/src/functions/index.js"
+    },
+    "./use": {
+      "types": "dist/src/hooks/index.d.ts",
+      "import": "dist/src/hooks/index.js",
+      "require": "dist/src/hooks/index.js"
     }
   },
   "scripts": {
@@ -30,7 +40,14 @@
     "type": "git",
     "url": "git+https://github.com/Judeadeniji/RC-Extended.git"
   },
-  "keywords": ["react", "components", "rc", "extend", "custom components", "async"],
+  "keywords": [
+    "react",
+    "components",
+    "rc",
+    "extend",
+    "custom components",
+    "async"
+  ],
   "author": "Adeniji Oluwaferanmi (TheLazyDev)",
   "bugs": {
     "url": "https://github.com/Judeadeniji/RC-Extended/issues"
@@ -40,9 +57,11 @@
   "devDependencies": {
     "@types/node": "^20.5.6",
     "@types/react": "^18.2.21",
+    "@types/webspeechapi": "^0.0.29",
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "@types/web-bluetooth": "^0.0.20",
     "react": "^18.2.0"
   }
 }

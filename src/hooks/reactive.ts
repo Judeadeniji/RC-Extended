@@ -1,6 +1,6 @@
 import { useState } from "react"
 
-export default function useReactive<T>(_value: T): { value: T }  {
+export function useReactive<T>(_value: T): { value: T }  {
   const [state, setState] = useState<T | any>({ _value });
 
   if (!("value" in state)) {
@@ -16,3 +16,5 @@ export default function useReactive<T>(_value: T): { value: T }  {
 
   return state;
 }
+
+export default useReactive

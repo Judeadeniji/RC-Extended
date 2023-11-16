@@ -1,5 +1,5 @@
 import React, { useEffect, ReactElement, ReactNode } from "react";
-import useReactive from "../hooks/reactive.js";
+import useReactive from "../../hooks/reactive.js";
 
 /**
  * Props for the Resolve component.
