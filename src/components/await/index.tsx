@@ -34,6 +34,7 @@ export function Await<T>({ promiseFn, children }: AwaitProps<T>): JSX.Element {
       isRejected: false,
       result: null,
       error: null,
+      invalidate,
     });
 
   /**
@@ -50,6 +51,7 @@ export function Await<T>({ promiseFn, children }: AwaitProps<T>): JSX.Element {
           isRejected: false,
           result,
           error: null,
+          invalidate
         };
       } catch (e: any) {
         promiseState.value = {
@@ -72,7 +74,20 @@ export function Await<T>({ promiseFn, children }: AwaitProps<T>): JSX.Element {
         controller.abort();
       };
     } catch (error: unknown) {}
-  }, [resolvePromise]);
+  }, [resolvePromise, promiseState.value.isPending]);
+
+  function invalidate() {
+    const isPending = promiseState.value.isPending;
+
+    if (!isPending) {
+      promiseState.value = {
+        ...promiseState.value,
+        isPending: true,
+        result: null,
+        error: null
+      }
+    }
+  }
 
   return (
     <AwaitContext.Provider value={promiseState.value}>

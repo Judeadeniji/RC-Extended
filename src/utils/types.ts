@@ -92,9 +92,9 @@ export type MapOldSources<T, Immediate> = {
 
 export type Mutable<T> = { -readonly [P in keyof T]: T[P] }
 
-export type MaybeRef<T> = T extends SignalRefObject<T> ? SignalRefObject<T> : Signal<T> | T
+export type MaybeRef<T> = T extends SignalRefObject<T> ? T : Signal<T> | T
 
-export type MaybeSignal<T> = T extends Signal<T> ? Signal<T> : MaybeRef<T> 
+export type MaybeSignal<T> = T extends Signal ? T : MaybeRef<T> 
 
 export type MaybeElementRef<T> = T extends SignalRefObject<HTMLElement> ? SignalRefObject<HTMLElement> : Signal<T> | T
 

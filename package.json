@@ -7,29 +7,29 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "dist/index.d.ts",
-      "import": "dist/index.js",
-      "require": "dist/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     },
     "./store": {
-      "types": "dist/src/store/index.d.ts",
-      "import": "dist/src/store/index.js",
-      "require": "dist/src/store/index.js"
+      "types": "./dist/src/store/index.d.ts",
+      "import": "./dist/src/store/index.js",
+      "require": "./dist/src/store/index.js"
     },
     "./components": {
-      "types": "dist/src/components/index.d.ts",
-      "import": "dist/src/components/index.js",
-      "require": "dist/src/components/index.js"
+      "types": "./dist/src/components/index.d.ts",
+      "import": "./dist/src/components/index.js",
+      "require": "./dist/src/components/index.js"
     },
     "./functions": {
-      "types": "dist/src/functions/index.d.ts",
-      "import": "dist/src/functions/index.js",
-      "require": "dist/src/functions/index.js"
+      "types": "./dist/src/functions/index.d.ts",
+      "import": "./dist/src/functions/index.js",
+      "require": "./dist/src/functions/index.js"
     },
     "./use": {
-      "types": "dist/src/hooks/index.d.ts",
-      "import": "dist/src/hooks/index.js",
-      "require": "dist/src/hooks/index.js"
+      "types": "./dist/src/hooks/index.d.ts",
+      "import": "./dist/src/hooks/index.js",
+      "require": "./dist/src/hooks/index.js"
     }
   },
   "scripts": {

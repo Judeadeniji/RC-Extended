@@ -1,14 +1,4 @@
-/**
- * @typedef {import("react").ReactElement} ReactElement
- * @typedef {import("react").ReactNode} ReactNode
- * @template T
- */
 import React, { Component, ReactNode } from "react";
-
-/**
- * @typedef {import("../store").Signal} Signal
- * @template T
- */
 import { Signal } from "../../store";
 
 /**
@@ -190,6 +180,11 @@ class For<T> extends Component<ExclusiveForProps<T>> {
 
   render(): React.JSX.Element {
     const { each, $each, children } = this.props;
+
+    if (!each && !$each) {
+      console.warn("No iterable data source provided to <For> component", "Provide an array, Map, Set, FormData, Generator, iterable, or plain object to the `each` prop or a Signal to the `$each` prop");
+      return;
+    }
     
     if ($each && typeof children === "function") {
       return <>{this.renderWithSignal(children, true)}</>;
@@ -204,7 +199,9 @@ class For<T> extends Component<ExclusiveForProps<T>> {
     }
 
     if (Array.isArray(children) || !React.isValidElement(children)) {
-      throw new Error("Only provide one valid child element or function to <For> component");
+      console.log(each);
+      console.warn("Rendering of children was blocked", "Only provide one valid child element or function to <For> component");
+      return;
     }
 
     return <>{this.renderUsingChildComponent(each, children)}</>;

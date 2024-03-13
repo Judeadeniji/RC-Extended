@@ -12,7 +12,7 @@ export function signalRef<T = any>(
   const proxy = new Proxy(_ref, {
     get(target, property: PropertyKey) {
       if (property === "current") {
-        return toValue(target[property] as MaybeSignal<T>);
+        return toValue(target.current);
       }
 
       return target.current[property as keyof Signal<T>];

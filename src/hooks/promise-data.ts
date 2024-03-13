@@ -6,8 +6,8 @@ import AwaitContext, { type AwaitContextType } from "../context.js"
  * @returns {AwaitContextType} The promise state from the context.
  * @throws {Error} If used outside a component that is a child of <Await>.
  */
-export function usePromiseData(): AwaitContextType {
-  const promiseState = useContext<AwaitContextType | undefined>(AwaitContext);
+export function usePromiseData<T>(): AwaitContextType<T> {
+  const promiseState = useContext<AwaitContextType<T> | undefined>(AwaitContext);
 
   if (!promiseState) {
     throw new Error("usePromiseData() can only be used in components that are children of <Await>");

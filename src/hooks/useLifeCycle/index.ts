@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect } from "react"
 
 // Path: src/hooks/useLifeCycle/index.ts
 
-function onMount(cb: () => () => void) {
+function onMount(cb: () => (void | (() => void))) {
     useEffect(cb, [])
 }
 

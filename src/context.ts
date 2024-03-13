@@ -8,6 +8,7 @@ export type AwaitContextType<T = any> = {
     isRejected: TrueFalse;
     result: T | null;
     error: Error | unknown | null;
+    invalidate: () =>void;
 }
 
 const AwaitContext = createContext<AwaitContextType | undefined>(undefined);

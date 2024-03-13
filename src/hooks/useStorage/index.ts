@@ -24,7 +24,7 @@ export function useStorage<T>(
   options: UseStorageOptions<T> = {}
 ) {
   const {
-    deep = true,
+    // deep = true,
     listenToStorageChanges = true,
     writeDefaults = true,
     mergeDefaults = false,
@@ -33,11 +33,11 @@ export function useStorage<T>(
     },
   } = options;
 
-  const shallow = !deep;
+  // const shallow = !deep;
   
   const storageInit = storage.getItem(key);
   
-  const rawInit: T = storageInit ? (options.serializer?.read ? options.serializer.read(storage.getItem(key)) : JSON.parse(storage.getItem(key))) : toValue(defaults);
+  const rawInit: T = storageInit ? (options.serializer?.read ? options.serializer.read(storage.getItem(key)) : JSON.parse(storage.getItem(key))) : toValue(defaults as any);
 
   const data = $signal(rawInit);
 
