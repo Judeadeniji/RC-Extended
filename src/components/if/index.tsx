@@ -1,5 +1,6 @@
 import React, { ReactNode, useState, useEffect } from "react";
 import { Signal } from "../../store"
+import { isSignal } from "../../utils";
 
 
 
@@ -35,14 +36,14 @@ interface IfProps<T extends any> {
  */
 export function Show<T extends any>({ when, $when, fallback = null, children }: IfProps<T>): React.JSX.Element {
 
-  if($when && !($when instanceof Signal)) {
+  if($when && !isSignal($when)) {
     throw new TypeError("$when prop must receive a signal as value")
   }
   
   const [whenV, setWhenV] = useState<any | false>($when ? $when.value : false)
   
   useEffect(() => {
-    if ($when instanceof Signal) {
+    if (isSignal($when)) {
       return $when.subscribe(n => setWhenV(n))
     }
   }, [])

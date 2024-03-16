@@ -1,3 +1,4 @@
+import { Signal } from "../store/signals.js"
 import type { AnyFn } from "./types.js"
 
 export const isClient = typeof window !== 'undefined' && typeof document !== 'undefined'
@@ -21,8 +22,12 @@ export const rand = (min: number, max: number) => {
 }
 export const hasOwn = <T extends object, K extends keyof T>(val: T, key: K): key is K => Object.prototype.hasOwnProperty.call(val, key)
 
-export const isIOS = /* #__PURE__ */ getIsIOS()
+export const isIOS = getIsIOS()
 
 function getIsIOS() {
-  return isClient && /* #__PURE__ */ window?.navigator?.userAgent && /* #__PURE__ */ /iP(ad|hone|od)/.test(/* #__PURE__ */ window.navigator.userAgent)
+  return isClient && window?.navigator?.userAgent && /iP(ad|hone|od)/.test(window.navigator.userAgent)
+}
+
+export function isSignal(val: unknown): val is Signal<typeof val> {
+  return val?.constructor?.name === Signal.name
 }

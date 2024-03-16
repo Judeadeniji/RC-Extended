@@ -220,7 +220,7 @@ class For<T> extends Component<ExclusiveForProps<T>> {
   }
 
   private renderUsingFunction(
-    each: T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string]: T },
+    each: T[] | Map<any, T> | Set<T> | FormData | Generator<T, void, unknown> | Iterable<T> | { [key: string | number | symbol]: T },
     renderFunction: Function
   ) {
     if (Array.isArray(each)) {

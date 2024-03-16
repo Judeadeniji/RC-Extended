@@ -228,7 +228,7 @@ declare class Signal<T = any> {
 	get value(): T;
 	set value(value: T);
 	
-	update(updater: (value?: T) => T): void;
+	update(updater: (value: T) => T): void;
 	
 	set(value: T): void;
 }

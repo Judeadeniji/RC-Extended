@@ -20,20 +20,20 @@ interface ResolveProps {
   /**
    * The ReactElement whose type will be resolved.
    */
-  children: ReactElement;
+  children: ReactElement | Promise<ReactElement>;
 }
 
 /**
  * This component resolves an asynchronous React component and updates the view.
  * @param {ResolveProps} props - The props for the Resolve component.
- * @returns {ReactNode} The resolved component, fallback, loading indicator, or error message.
+ * @returns {JSX.Element} The resolved component, fallback, loading indicator, or error message.
  */
 export function Resolve({
   fallback,
   loading,
   errFallback,
   children,
-}: ResolveProps): ReactNode {
+}: ResolveProps): React.ReactNode {
   const resolvedComponent = useReactive<ReactElement | null>(null);
   const state = useReactive<{ error: Error | null; isLoading: true | false }>({
     error: null,
@@ -65,7 +65,7 @@ export function Resolve({
      * Load the resolved component and update the state.
      */
     async function loadComponent() {
-      if (typeof children.type !== "function") {
+      if (typeof (await children).type !== "function") {
         throw new TypeError(
           "Child of <Resolve> must be a component. Did you provide a JSX literal by mistake?"
         );
@@ -74,7 +74,7 @@ export function Resolve({
       try {
         //@ts-ignore
         const component = await children.type({
-          ...children.props,
+          ...(await children).props,
           invalidate,
         });
         resolvedComponent.value = component;
