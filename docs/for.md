@@ -1,193 +1,105 @@
-I apologize for missing that important update in the documentation. To reflect the support for using a function as a child of the `For` component, let's update the documentation accordingly:
+# For Component Documentation
 
-```markdown
-# `For` Component Documentation
+## Overview
 
-## Introduction
+The `For` component is a versatile React component designed to iterate over various types of data sources and render a child component or function for each item in the data source. It supports arrays, maps, sets, form data, generators, and other iterable objects.
 
-The `For` component simplifies the process of iterating over an array and rendering a child component for each item. This documentation provides comprehensive guidance on the `For` component, including its purpose, usage, and customization options.
+## Table of Contents
+
+1. Installation
+2. [Import Statements](#import-statements)
+3. Usage
+    - [Basic Usage](#basic-usage)
+
+4. [API Reference](#api-reference)
+    - [ForProps Interface](#forprops-interface)
+    - [Each Type](#each-type)
+    - $Each Type
+
+5. Conclusion
+
+## Installation
+
+To use the `For` component, ensure you have the necessary dependencies installed:
+
+```bash
+npm install react rc-extended
+```
 
 ## Import Statements
 
-To get started, import the `For` component:
+Begin by importing the necessary components and types:
 
 ```javascript
-import { For } from 'rc-extended';
+import React, { Component, ReactNode } from "react";
+import { Signal } from "rc-extended/store";
 ```
 
 ## Usage
 
-The `For` component's primary usage is to iterate over an array and render a specified child component for each item. It offers two approaches for rendering:
+### Basic Usage
 
-### Approach 1: Render Using Child Component
-
-Here's how you can use the `For` component to render a child component for each item in an array:
-
-1. **Provide an Array**: Pass an array of items you want to iterate over using the `each` prop.
+Wrap the `For` component around any child component or function that you want to render for each item in the data source:
 
 ```javascript
-const items = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={items}>
-  {/* Child component */}
+<For each={data}>
+  {(item, index) => <YourComponent key={index} item={item} index={index} />}
 </For>
 ```
 
-2. **Specify Child Component**: Insert the child component you want to render for each item as the child of the `For` component.
+## API Reference
 
-```javascript
-const items = ['Apple', 'Banana', 'Orange', 'Grapes'];
+### ForProps Interface
 
-<For each={items}>
-  <ListItemComponent />
-</For>
-```
+The `ForProps` interface defines the properties that can be passed to the `For` component.
 
-3. **Customize `item` and `index` Props (Optional)**: You can customize the prop names used for `item` and `index` within the child component. By default, they are `item` and `index`, but you can rename them using the `item` and `index` props within the child component.
-
-```javascript
-function ListItemComponent({ fruit, position }) {
-  return <li>{fruit} (Position: {position})</li>;
+```typescript
+interface ForProps<T> {
+  each?: Each<T>;
+  $each?: $Each<T>;
+  children:
+   | React.ReactElement<any, any> & {
+      props: T extends T[]
+       ? { item: T[number]; index: number }
+       : T extends Map<any, T>
+       ? { item: T; index: string }
+       : T extends Set<T>
+       ? { item: T; index: number }
+       : { item: T; index: string };
+    }
+   | ((item: T, index: T extends T[] ? number : string) => ReactNode);
 }
 ```
 
-To use custom prop names:
+#### Properties
 
-```javascript
-<For each={items}>
-  <ListItemComponent item="fruit" index="position" />
-</For>
+- `each?: Each<T>`: The iterable data source. It can be an array, map, set, form data, generator, or any other iterable object.
+- `$each?: $Each<T>`: The Signal data source.
+- `children`: The child component or function to render for each item in the data source. It can be a React element with specific props or a function that receives the item and index as arguments and returns a React node.
+
+### Each Type
+
+The `Each` type defines the possible data sources that can be iterated over by the `For` component.
+
+```typescript
+type Each<T> =
+  | T[]
+  | Map<any, T>
+  | Set<T>
+  | FormData
+  | Generator<T, void, unknown>
+  | Iterable<T>
+  | { [key: string]: T };
 ```
 
-4. **Add Additional Props (Optional)**: You can also add extra props to the child component as needed.
+### $Each Type
 
-```javascript
-<For each={items}>
-  <ListItemComponent item="customItemName" index="customIndexName" {...props} />
-</For>
+The `$Each` type defines the Signal data source that can be used by the `For` component.
+
+```typescript
+type $Each<T> = Signal<Each<T>>;
 ```
-
-### Approach 2: Render Using Function Child
-
-Alternatively, you can use a function as a child of the `For` component to receive the item and index as arguments. This approach is particularly useful when you need more control over rendering. Here's how:
-
-1. **Provide an Array**: Pass an array of items you want to iterate over using the `each` prop.
-
-```javascript
-const items = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={items}>
-  {/* Child function */}
-</For>
-```
-
-2. **Use Function as Child**: Insert a function as the child of the `For` component. This function will receive the current item and index as arguments.
-
-```javascript
-const items = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={items}>
-  {(item, index) => (
-    // Render your elements using item and index
-    <div key={index}>{item}</div>
-  )}
-</For>
-```
-
-3. **Result**: The function child will be called for each item in the array, allowing you to customize rendering based on the item and index.
-
-## Example Usage
-
-### Example 1: Customized Prop Names
-
-Consider a scenario where you want to customize the prop names for `item` and `index`. Here's how you can do it:
-
-```javascript
-import { For } from 'rc-extended';
-
-const fruits = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={fruits}>
-  <ListItemComponent item="fruit" index="position" />
-</For>
-```
-
-In this example, the `ListItemComponent` will receive `fruit` as the item's name prop and `position` as the index prop.
-
-```javascript
-function ListItemComponent({ fruit, position }) {
-  return <li>{fruit} (Index: {position})</li>;
-}
-```
-
-### Example 2: Customized Prop Names with Additional Props
-
-You can also customize prop names and add extra props simultaneously:
-
-```javascript
-import { For } from 'rc-extended';
-
-const fruits = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={fruits}>
-  <ListItemComponent item="fruit" index="position" {...props} />
-</For>
-```
-
-In this case, the `ListItemComponent` will receive `fruit` as the item's name prop, `position` as the index prop, and any other additional prop.
-
-```javascript
-function ListItemComponent({ fruit, position, ...props }) {
-  return <li>{fruit} (Index: {position}) - isFavorite: {props.isFav(fruit)}</li>;
-}
-```
-
-### Example 3: Default `item` and `index` Props
-
-If you don't specify custom prop names, the `For` component will use `item` and `index` as the default prop names:
-
-```javascript
-import { For } from 'rc-extended';
-
-const fruits = ['Apple', 'Banana', 'Orange', 'Grapes'];
-
-<For each={fruits}>
-  <ListItemComponent />
-</For>
-```
-
-The `ListItemComponent` will receive `item` as the item's name prop and `index` as the index prop by default.
-
-```javascript
-function ListItemComponent({ item, index }) {
-  return <li>{item} (Index: {index})</li>;
-}
-```
-
-### Example 4: Using Signals with `For` component
-
-```javascript
-import { For } from "rc-extended"
-import { signal } from "rc-extended/store"
-
-const fruits = signal(['Apple', 'Banana', 'Orange', 'Grapes']);
-
-// $each is used to signify that the prop value is a signal
-<For $each={fruits}>
-  {/* Render your fruits */}
-</For>
-```
-
-## Error Handling
-
-The `For` component includes robust error handling to ensure proper usage. It checks for the following:
-
-1. **Single Child Component or Function**: It verifies that either a single child component or a function is provided within the `For` component.
-
-2. **Array Prop**: It checks that the `each` prop is an array.
-
-Any violations of these checks will result in an error.
 
 ## Conclusion
 
-The `For` component streamlines the process of rendering repetitive components by managing the iteration logic for you. This promotes cleaner, more readable code while ensuring correct usage. Customize prop names, add additional props, and tailor your component rendering to your specific needs with ease.
+The `For` component is a powerful tool for iterating over various types of data sources in React applications. By using this component, you can easily render child components or functions for each item in the data source, ensuring a flexible and efficient way to handle dynamic data rendering.

@@ -691,29 +691,11 @@ function getStoreContext(hookName: string) {
   return ctx;
 }
 
-export function getActions() {
-  const store = getStoreContext("getActions()");
+export function getActions<StoreState = State, StoreActions extends Record<string, any> = {}, StoreComputed extends Record<string, (this: StoreState) => any> = {}>() {
+  const _store = getStoreContext("getActions()") as Store<any, any, any>;
+  const store = useStore<StoreState, StoreActions, StoreComputed>(_store.name);
 
   const actions = store.actions;
-
-  // this why I don't really like react
-  const [, setState] = useState<{}>({});
-
-  useEffect(() => {
-    let unsubscribers: (() => void)[] = [];
-
-    function subscribe() {
-      unsubscribers = Object.keys(store._state).map((key) => {
-        return store.subscribe(key, () => setState({}));
-      });
-
-      return function unsubscribe() {
-        unsubscribers.forEach((fn) => fn());
-      };
-    }
-
-    return subscribe();
-  }, []);
 
   return actions;
 }

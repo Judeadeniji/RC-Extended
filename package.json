@@ -1,6 +1,6 @@
 {
   "name": "rc-extended",
-  "version": "0.0.132",
+  "version": "0.0.14",
   "description": "Cybernetically enhanced React components",
   "main": "dist/**/*",
   "types": "dist/**/*.ts",

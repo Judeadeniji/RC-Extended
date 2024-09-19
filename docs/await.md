@@ -1,6 +1,32 @@
-# `Await` Component and `usePromiseData` Hook Usage Documentation
+# Await Component Documentation
 
-The `Await` component, in conjunction with the `usePromiseData` hook, offers a seamless way to handle asynchronous operations and manage promise states in your React application. This documentation provides a comprehensive guide to their proper usage.
+## Overview
+
+The `Await` hook, offers a seamless way to handle asynchronous operations and manage promise states in your React application. This documentation provides a comprehensive guide to their proper usage.
+
+## Table of Contents
+
+1. Installation
+2. Import Statements
+3. Using the `Await` Component
+    - Basic Usage
+
+4. Using the `usePromiseData` Hook
+    - Accessing Promise State
+
+5. API Reference
+    - `Await` Component
+    - `usePromiseData` Hook
+
+6. Conclusion
+
+## Installation
+
+To use the `Await` component and `usePromiseData` hook, ensure you have the necessary dependencies installed:
+
+```bash
+npm install react rc-extended
+```
 
 ## Import Statements
 
@@ -33,11 +59,11 @@ function AwaitContent() {
   const { isPending, isFulfilled, isRejected, result, error } = usePromiseData();
 
   return (
-    <div>
-      {isPending && <p>Loading...</p>}
-      {isFulfilled && <p>Data: {result}</p>}
-      {isRejected && <p>Error: {error.message}</p>}
-    </div>
+   <div>
+    {isPending && <p>Loading...</p>}
+    {isFulfilled && <p>Data: {result}</p>}
+    {isRejected && <p>Error: {error.message}</p>}
+   </div>
   );
 }
 ```
@@ -57,14 +83,47 @@ function AwaitContent() {
   const { isPending, isFulfilled, isRejected, result, error } = usePromiseData();
 
   return (
-    <div>
-      {isPending && <p>Loading...</p>}
-      {isFulfilled && <p>Data: {result}</p>}
-      {isRejected && <p>Error: {error.message}</p>}
-    </div>
+   <div>
+    {isPending && <p>Loading...</p>}
+    {isFulfilled && <p>Data: {result}</p>}
+    {isRejected && <p>Error: {error.message}</p>}
+   </div>
   );
 }
 ```
+
+## API Reference
+
+### `Await` Component
+
+#### Props
+
+- `promiseFn: (controller: AbortController) => Promise<T>`
+  - A function that returns a promise to be awaited. It receives an `AbortController` as an argument.
+- `children: ReactNode`
+  - The content to be rendered while awaiting the promise.
+
+#### Returns
+
+- `JSX.Element`
+  - The JSX for the `Await` component.
+
+### `usePromiseData` Hook
+
+The `usePromiseData` hook provides access to the state of the promise being awaited by the `Await` component.
+
+#### `usePromiseData` Returns
+
+- `isPending: boolean`
+  - Indicates if the promise is still pending.
+- `isFulfilled: boolean`
+  - Indicates if the promise has been fulfilled.
+- `isRejected: boolean`
+  - Indicates if the promise has been rejected.
+- `result: T | null`
+  - The result of the fulfilled promise.
+- `error: Error | null`
+  - The error object if the promise was rejected.
 
 ## Conclusion
 

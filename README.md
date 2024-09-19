@@ -1,6 +1,7 @@
 
 # rc-extended
-## Cybernetically enhanced Components and Hooks for React.
+
+## Cybernetically enhanced Components and Hooks for React
 
 ![Version](https://img.shields.io/npm/v/rc-extended)
 ![License](https://img.shields.io/npm/l/rc-extended)
@@ -14,7 +15,6 @@
 With **rc-extended**, you get more than just syntax sugar. We're talking about a plethora of features designed to supercharge your React projects.
 
 ### Awaiting Promises in Markup 🚀
-
 
 ```javascript
 <Await promiseFn={buyRing}>
